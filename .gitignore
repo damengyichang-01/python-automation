@@ -10,6 +10,5 @@ venv/
 .idea/
 
 # 运行产物
+demo_output/
 *.log
-output/
-input/
