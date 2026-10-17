@@ -8,11 +8,12 @@ import argparse
 from pathlib import Path
 
 
-def build_plan(folder: Path, ext: str, prefix: str, width: int):
+def build_plan(folder: Path, ext: str, prefix: str, width: int,  sort_by: str = "name"):
     """生成 [(原文件, 新文件名), ...]，不真正改名。"""
+    key = (lambda f: f.name) if sort_by == "name" else (lambda f: f.stat().st_mtime)
     files = sorted(
         [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() == ext.lower()],
-        key=lambda f: f.name,
+        key=key
     )
     plan = []
     for i, f in enumerate(files, start=1):
@@ -27,6 +28,7 @@ def main():
     p.add_argument("--ext", required=True, help="文件后缀，例如 .png")
     p.add_argument("--prefix", required=True, help="新文件名前缀")
     p.add_argument("--width", type=int, default=3, help="序号位数，默认 3")
+    p.add_argument("--sort",choices=["name","mtime"], default="name",help="排列方式: name=按文件名(默认),mtime=按时间修改")
     p.add_argument("--dry-run", action="store_true", help="只预览，不改名")
     args = p.parse_args()
 
@@ -34,7 +36,7 @@ def main():
     if not folder.is_dir():
         raise SystemExit(f"目录不存在: {folder}")
 
-    plan = build_plan(folder, args.ext, args.prefix, args.width)
+    plan = build_plan(folder, args.ext, args.prefix, args.width,args.sort)
     if not plan:
         print(f"没有找到 {args.ext} 文件")
         return
