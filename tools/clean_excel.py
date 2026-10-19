@@ -74,9 +74,9 @@ def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
         missing = [c for c in dedup_by if c not in df.columns]
         if missing:
             sys.exit(f"去重依据的列不存在：{', '.join(missing)}")
-        df = df.drop_duplicates(subset=dedup_by, keep="first")
+        df = df.drop_duplicates(subset=dedup_by, keep="first").copy()
     else:
-        df = df.drop_duplicates(keep="first")
+        df = df.drop_duplicates(keep="first").copy()
     report["去重"] = rows_before - len(df)
 
     # ---------- 2. 补空 ----------
@@ -118,6 +118,8 @@ def main():
     p.add_argument("--fill-cols", default="", help="只对这些列补空，逗号分隔；不填=所有空值都补")
     p.add_argument("--date-cols", default="", help="指定日期列，逗号分隔；不填=自动识别")
     p.add_argument("--dry-run", action="store_true", help="只预览，不写文件")
+    p.add_argument("--keep-index",action="store_true",help="保留原始行号(默认重排)")
+    p.add_argument("--preview-rows",type=int,default=5,help="预览显示行数，默认5")
     args = p.parse_args()
 
     src = Path(args.source)
@@ -132,8 +134,11 @@ def main():
     dedup_by = [c.strip() for c in args.dedup_by.split(",") if c.strip()] or None
     fill_cols = [c.strip() for c in args.fill_cols.split(",") if c.strip()] or None
     date_cols = [c.strip() for c in args.date_cols.split(",") if c.strip()] if args.date_cols else None
-
+        
     cleaned, report = clean(df, dedup_by=dedup_by, fill_cols=fill_cols, date_cols=date_cols)
+
+    if not args.keep_index:
+        cleaned = cleaned.reset_index(drop=True)
 
     print("\n" + "=" * 50)
     print("清洗报告：")
@@ -145,8 +150,8 @@ def main():
     print(f"\n清洗后：{len(cleaned)} 行 × {len(cleaned.columns)} 列")
 
     if args.dry_run:
-        print("\n[预览模式] 未写文件。前 5 行：")
-        print(cleaned.head().to_string())
+        print(f"\n[预览模式] 未写文件。前{args.preview_rows}行：")
+        print(cleaned.head(args.preview_rows).to_string())
         return
 
     out = Path(args.output)
