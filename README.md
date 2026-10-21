@@ -75,6 +75,10 @@ python tools/clean_excel.py "数据.xlsx" -o 结果.xlsx --keep-index
 python -m pip install -r requirements.txt
 ```
 
+## 学习计划
+
+- [12 周技术英语学习计划](docs/english-plan.md) —— 每天 30 分钟，只练"读懂技术文档"，附 150 个高频词和官方文档清单
+
 ## 开发进度
 
 - [x] 第 1 周：批量重命名、多表合并
