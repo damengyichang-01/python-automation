@@ -25,7 +25,7 @@ def build_plan(folder: Path, ext: str, prefix: str, width: int,  sort_by: str = 
 def main():
     p = argparse.ArgumentParser(description="批量重命名文件")
     p.add_argument("folder", help="要处理的目录")
-    p.add_argument("--ext", required=True, help="文件后缀，例如 .png")
+    p.add_argument("--ext", required=True, help="文件扩展名，例如 .png")
     p.add_argument("--prefix", required=True, help="新文件名前缀")
     p.add_argument("--width", type=int, default=3, help="序号位数，默认 3")
     p.add_argument("--sort",choices=["name","mtime"], default="name",help="排列方式: name=按文件名(默认),mtime=按时间修改")
