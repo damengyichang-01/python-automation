@@ -2,6 +2,10 @@
 
 把日常重复的表格、文件操作变成一条命令，省下的是时间。
 
+## 快速使用（不用懂命令行）
+
+**双击 `启动工具包.bat`**，按菜单提示输入数字和路径即可。详细步骤见 [使用说明.md](使用说明.md)。
+
 ## 工具列表
 
 | 工具 | 作用 | 用法 |
@@ -9,6 +13,8 @@
 | `tools/batch_rename.py` | 批量重命名文件，可加序号和前缀 | `python tools/batch_rename.py "目录" --ext .png --prefix 图片 --dry-run` |
 | `tools/merge_excel.py` | 多张 Excel/CSV 合并成一张，按列名自动对齐 | `python tools/merge_excel.py "数据目录" -o 合并结果.xlsx` |
 | `tools/clean_excel.py` | 清洗 Excel：去重、补空、统一日期格式 | `python tools/clean_excel.py "数据.xlsx" -o 结果.xlsx` |
+| `tools/reconcile.py` | 两表对账：找出只在A、只在B、金额不符的记录 | `python tools/reconcile.py a.xlsx b.xlsx --key 订单号` |
+| `menu.py` | 菜单式入口，供不熟悉命令行的人使用 | 双击 `启动工具包.bat` |
 
 ### batch_rename.py
 
