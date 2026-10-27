@@ -35,9 +35,25 @@ def main():
     p.add_argument("-o", "--output", default="对账结果.xlsx", help="输出文件名")
     args = p.parse_args()
 
+    for path, name in ((args.file_a, "表 A"), (args.file_b, "表 B")):
+        if not Path(path).is_file():
+            sys.exit(f"{name} 的文件不存在：{path}")
+
     df_a = pd.read_excel(args.file_a)
     df_b = pd.read_excel(args.file_b)
     print(f"A 表：{len(df_a)} 行，B 表：{len(df_b)} 行")
+
+    # 列名写错时给出可用列，别让用户对着 KeyError 猜
+    for df, name in ((df_a, "表 A"), (df_b, "表 B")):
+        cols = [str(c) for c in df.columns]
+        if args.key not in cols:
+            sys.exit(f"{name} 里没有「{args.key}」这一列。\n"
+                     f"可用列：{', '.join(cols)}\n"
+                     f"用 --key 指定正确的列名。")
+        if args.compare not in cols:
+            sys.exit(f"{name} 里没有「{args.compare}」这一列。\n"
+                     f"可用列：{', '.join(cols)}\n"
+                     f"用 --compare 指定正确的列名。")
 
     only_a, only_b, diff = reconcile(df_a, df_b, args.key, args.compare)
 

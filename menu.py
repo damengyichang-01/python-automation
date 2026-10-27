@@ -77,19 +77,24 @@ def read(prompt):
     return s.replace("\ufeff", "").strip()
 
 
-def ask(prompt, default=""):
-    """问一个问题，带默认值。"""
-    if default:
-        s = read(f"{prompt}（直接回车用 {default}）: ")
-        if s is None:
-            raise SystemExit(0)
-        return s if s else default
+def ask(prompt, default="", required=True):
+    """问一个问题。
+
+    required=False 时允许直接回车跳过（用于"可选"的问题）。
+    """
+    hint = f"（直接回车用 {default}）" if default else ""
+    if not required:
+        hint = hint or "（直接回车跳过）"
     while True:
-        s = read(f"{prompt}: ")
+        s = read(f"{prompt}{hint}: ")
         if s is None:
             raise SystemExit(0)
         if s:
             return s
+        if default:
+            return default
+        if not required:
+            return ""
         print("  这一项不能空，请重新输入。")
 
 
@@ -105,6 +110,15 @@ def run(func, argv):
             print(f"\n[提示] {code}")
         elif code not in (0, None):
             print(f"\n[提示] 程序以退出码 {code} 结束")
+    except FileNotFoundError as e:
+        print(f"\n[提示] 找不到文件：{e.filename or e}")
+        print("       请检查路径是否写对，或是文件是否被移动/删除。")
+    except PermissionError as e:
+        print(f"\n[提示] 没有权限读写：{e.filename or e}")
+        print("       文件可能正被 Excel 打开，关掉再试一次。")
+    except KeyError as e:
+        print(f"\n[提示] 表格里没有这一列：{e}")
+        print("       可以用功能 0 之外的选项重新输入正确的列名。")
     except Exception as e:
         print(f"\n[出错] {type(e).__name__}: {e}")
     finally:
@@ -141,7 +155,7 @@ def opt_clean():
     print("\n--- 清洗 Excel ---\n")
     src = ask("要清洗的 Excel 文件路径")
     out = ask("结果保存成", "清洗结果.xlsx")
-    dedup = ask("按哪一列去重？不填就整行完全一样才删", "")
+    dedup = ask("按哪一列去重？不填就整行完全一样才删", "", required=False)
     argv = ["clean_excel.py", src, "-o", out]
     if dedup:
         argv += ["--dedup-by", dedup]
