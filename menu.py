@@ -77,14 +77,18 @@ def read(prompt):
     return s.replace("\ufeff", "").strip()
 
 
-def ask(prompt, default="", required=True):
+def ask(prompt, default="", required=True, show_hint=True):
     """问一个问题。
 
     required=False 时允许直接回车跳过（用于"可选"的问题）。
+    show_hint=False 时不自动追加"（直接回车用 xxx）"，用于提示里已写明默认值的情况。
     """
-    hint = f"（直接回车用 {default}）" if default else ""
-    if not required:
-        hint = hint or "（直接回车跳过）"
+    hint = ""
+    if show_hint:
+        if default:
+            hint = f"（直接回车用 {default}）"
+        elif not required:
+            hint = "（直接回车跳过）"
     while True:
         s = read(f"{prompt}{hint}: ")
         if s is None:
@@ -96,6 +100,15 @@ def ask(prompt, default="", required=True):
         if not required:
             return ""
         print("  这一项不能空，请重新输入。")
+
+
+def print_columns(title, cols, per_line=6):
+    """列名可能有几十个，一行写不下就分行显示。"""
+    if not cols:
+        return
+    print(f"\n{title}（共 {len(cols)} 列）：")
+    for i in range(0, len(cols), per_line):
+        print("  " + "  |  ".join(cols[i:i + per_line]))
 
 
 def run(func, argv):
@@ -194,8 +207,7 @@ def opt_clean():
     print("\n--- 清洗 Excel ---\n")
     src = ask("要清洗的 Excel 文件路径")
     cols = peek_columns(src)
-    if cols:
-        print("\n这张表的列：" + "  |  ".join(cols))
+    print_columns("这张表的列", cols)
     out = ask("结果保存成", "清洗结果.xlsx")
     dedup = ask("按哪一列去重？（输入上面某个列名，直接回车 = 整行完全一样才删）",
                 "", required=False)
@@ -214,14 +226,13 @@ def opt_reconcile():
 
     cols_a = peek_columns(a)
     cols_b = peek_columns(b)
-    if cols_a:
-        print("\n表 A 的列：" + "  |  ".join(cols_a))
-    if cols_b:
-        print("表 B 的列：" + "  |  ".join(cols_b))
+    print_columns("表 A 的列", cols_a)
+    print_columns("表 B 的列", cols_b)
     if cols_a or cols_b:
         print()
 
-    key = ask("用哪一列匹配两张表（填上面两表都有的列名）", "订单号")
+    key = ask("用哪一列匹配两张表（填两表都有的列名，回车默认 订单号）",
+              "订单号", show_hint=False)
     compare = ask("要比对哪一列", "金额")
     out = ask("结果保存成", "对账结果.xlsx")
     tool = load_tool("reconcile")
