@@ -39,7 +39,8 @@ build_exe.bat fast   # 文件夹版（启动快 10 倍，自己用）
 | `tools/batch_rename.py` | 批量重命名文件，可加序号和前缀 | `python tools/batch_rename.py "目录" --ext .png --prefix 图片 --dry-run` |
 | `tools/merge_excel.py` | 多张 Excel/CSV 合并成一张，按列名自动对齐 | `python tools/merge_excel.py "数据目录" -o 合并结果.xlsx` |
 | `tools/clean_excel.py` | 清洗 Excel：去重、补空、统一日期格式 | `python tools/clean_excel.py "数据.xlsx" -o 结果.xlsx` |
-| `tools/reconcile.py` | 两表对账：找出只在A、只在B、金额不符的记录 | `python tools/reconcile.py a.xlsx b.xlsx --key 订单号` |
+| `tools/reconcile.py` | 两表对账：找出只在A、只在B、字段不符的记录（支持多列比对） | `python tools/reconcile.py a.xlsx b.xlsx --key 订单号 --compare 金额,客户` |
+| `tools/pdf_merge.py` | PDF 合并 / 拆分成单页 / 抽取指定页 | `python tools/pdf_merge.py "PDF文件夹" -o 合并结果.pdf` |
 | `menu.py` | 菜单式入口，供不熟悉命令行的人使用 | 双击 `启动工具包.bat` |
 
 ### batch_rename.py
@@ -117,7 +118,8 @@ python -m pip install -r requirements.txt
 - [x] 第 1 周：pandas 数据清洗
 - [x] 第 1 周：两表对账（支持多列比对、差异字段标注）
 - [x] 第 2 周：打包成可交付的工具包（菜单 + 双击启动 + 单文件 exe）
-- [ ] 第 2 周：Word / PDF 处理
+- [x] 第 2 周：PDF 合并 / 拆分 / 抽取页面
+- [ ] 第 2 周：Word 批量处理
 - [ ] 第 3 周：上架试卖，拿到第一笔收入
 
 ## 测试数据

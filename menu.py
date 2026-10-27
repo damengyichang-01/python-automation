@@ -44,11 +44,12 @@ def load_tool(name):
                 print("请运行：python -m pip install " + " ".join(_missing))
                 read("按回车返回菜单...")
                 return None
-        from tools import batch_rename, clean_excel, merge_excel, reconcile
+        from tools import batch_rename, clean_excel, merge_excel, pdf_merge, reconcile
         _TOOLS.update(
             batch_rename=batch_rename,
             clean_excel=clean_excel,
             merge_excel=merge_excel,
+            pdf_merge=pdf_merge,
             reconcile=reconcile,
         )
     return _TOOLS.get(name)
@@ -63,6 +64,7 @@ def show_menu():
     print("  2  合并多个 Excel / CSV")
     print("  3  清洗 Excel（去重 / 补空 / 统一日期）")
     print("  4  两表对账（找出对不上的记录）")
+    print("  5  PDF 合并 / 拆分 / 抽取页面")
     print("  0  退出")
     print("-" * 48)
 
@@ -242,11 +244,47 @@ def opt_reconcile():
             ["reconcile.py", a, b, "--key", key, "--compare", compare, "-o", out])
 
 
+def opt_pdf():
+    print("\n--- PDF 合并 / 拆分 ---\n")
+    print("  1) 把文件夹里所有 PDF 合并成一个")
+    print("  2) 把一个 PDF 拆成单页")
+    print("  3) 从一个 PDF 里只抽取几页")
+    mode = ask("选哪个？输入编号", "1")
+
+    tool = load_tool("pdf_merge")
+    if not tool:
+        return
+
+    if mode == "1":
+        folder = ask("放 PDF 的文件夹路径")
+        out = ask("合并后的文件名", "合并结果.pdf")
+        preview = ask("先预览合并顺序？输入 n 直接合并", "y")
+        argv = ["pdf_merge.py", folder, "-o", out]
+        if preview.lower() != "n":
+            argv.append("--dry-run")
+        run(tool.main, argv)
+    elif mode == "2":
+        src = ask("要拆分的 PDF 文件路径")
+        out = ask("输出到哪个文件夹？直接回车自动起名", "", required=False)
+        argv = ["pdf_merge.py", src, "--split"]
+        if out:
+            argv += ["-o", out]
+        run(tool.main, argv)
+    elif mode == "3":
+        src = ask("要抽取的 PDF 文件路径")
+        pages = ask("要哪几页？（写法如 1-3,7）")
+        out = ask("保存成", "抽取结果.pdf")
+        run(tool.main, ["pdf_merge.py", src, "--pages", pages, "-o", out])
+    else:
+        print("\n没有这个选项。")
+
+
 def main():
-    actions = {"1": opt_rename, "2": opt_merge, "3": opt_clean, "4": opt_reconcile}
+    actions = {"1": opt_rename, "2": opt_merge, "3": opt_clean,
+               "4": opt_reconcile, "5": opt_pdf}
     while True:
         show_menu()
-        choice = read("请选择 0-4: ")
+        choice = read("请选择 0-5: ")
         if choice is None or choice == "0":
             print("\n再见。")
             break
