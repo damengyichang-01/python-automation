@@ -6,7 +6,11 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE / "tools"))
+# 没打包时（直接跑 menu.py），把项目根目录放进搜索路径，
+# 这样才能 from tools import ...
+# 打包成 exe 后判断目录只是临时解压位置，不依赖它。
+if not getattr(sys, "frozen", False):
+    sys.path.insert(0, str(HERE))
 
 # 让中文在 Windows 控制台正常显示
 try:
@@ -29,10 +33,7 @@ if _missing:
     input("\n按回车退出...")
     sys.exit(1)
 
-import batch_rename
-import clean_excel
-import merge_excel
-import reconcile
+from tools import batch_rename, clean_excel, merge_excel, reconcile
 
 
 def show_menu():

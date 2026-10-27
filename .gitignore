@@ -17,3 +17,8 @@ demo_output/
 对账结果.xlsx
 合并结果.xlsx
 清洗结果.xlsx
+
+# 打包产物
+build/
+dist/
+*.spec
