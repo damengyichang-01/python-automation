@@ -111,6 +111,8 @@ python -m pip install -r requirements.txt
 ## 学习计划
 
 - [12 周技术英语学习计划](docs/english-plan.md) —— 每天 30 分钟，只练"读懂技术文档"，附 150 个高频词和官方文档清单
+- [概念速查表](docs/cheatsheet.md) —— 学过的每个知识点对应到「文件:行号」，忘了直接查
+- [代码索引](docs/code-index.md) —— 自动生成，列出每个函数在第几行
 
 ## 开发进度
 
