@@ -233,7 +233,8 @@ def opt_reconcile():
 
     key = ask("用哪一列匹配两张表（填两表都有的列名，回车默认 订单号）",
               "订单号", show_hint=False)
-    compare = ask("要比对哪一列", "金额")
+    compare = ask("要比对哪些列？（可填多个，用英文逗号隔开，回车默认 金额）",
+                  "金额", show_hint=False)
     out = ask("结果保存成", "对账结果.xlsx")
     tool = load_tool("reconcile")
     if tool:
