@@ -221,7 +221,7 @@ def opt_reconcile():
     if cols_a or cols_b:
         print()
 
-    key = ask("用哪一列匹配两张表（填上面都有的列名）", "订单号")
+    key = ask("用哪一列匹配两张表（填上面两表都有的列名）", "订单号")
     compare = ask("要比对哪一列", "金额")
     out = ask("结果保存成", "对账结果.xlsx")
     tool = load_tool("reconcile")
