@@ -127,10 +127,49 @@ def run(func, argv):
     read("按回车返回菜单...")
 
 
+def scan_extensions(folder):
+    """列出文件夹里真实存在的文件类型和数量，按数量从多到少。"""
+    p = Path(folder)
+    if not p.is_dir():
+        return []
+    counts = {}
+    for f in p.iterdir():
+        if f.is_file() and f.suffix:
+            ext = f.suffix.lower()
+            counts[ext] = counts.get(ext, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
+def peek_columns(path):
+    """只读表头，拿到列名。读失败返回空列表。"""
+    try:
+        import pandas as pd
+        return [str(c) for c in pd.read_excel(path, nrows=0).columns]
+    except Exception:
+        return []
+
+
 def opt_rename():
     print("\n--- 批量重命名文件 ---\n")
     folder = ask("要处理的文件夹路径（可以直接把文件夹拖进来）")
-    ext = ask("只处理哪种文件", ".png")
+
+    exts = scan_extensions(folder)
+    if not exts:
+        print(f"\n没在这个文件夹里找到文件：{folder}")
+        print("请确认路径是否正确，或换个文件夹试试。")
+        read("按回车返回菜单...")
+        return
+
+    print(f"\n在这个文件夹里找到 {len(exts)} 种文件：")
+    for i, (e, n) in enumerate(exts[:9], 1):
+        print(f"  {i}) {e}   共 {n} 个")
+    pick = ask("要处理哪一种？输入编号", "1")
+    if pick.isdigit() and 1 <= int(pick) <= min(len(exts), 9):
+        ext = exts[int(pick) - 1][0]
+    else:
+        ext = pick if pick.startswith(".") else "." + pick
+    print(f"\n将处理 {ext} 文件")
+
     prefix = ask("新文件名前缀", "文件")
     preview = ask("先预览不改名？输入 n 直接改名", "y")
     argv = ["batch_rename.py", folder, "--ext", ext, "--prefix", prefix]
@@ -154,8 +193,12 @@ def opt_merge():
 def opt_clean():
     print("\n--- 清洗 Excel ---\n")
     src = ask("要清洗的 Excel 文件路径")
+    cols = peek_columns(src)
+    if cols:
+        print("\n这张表的列：" + "  |  ".join(cols))
     out = ask("结果保存成", "清洗结果.xlsx")
-    dedup = ask("按哪一列去重？不填就整行完全一样才删", "", required=False)
+    dedup = ask("按哪一列去重？（输入上面某个列名，直接回车 = 整行完全一样才删）",
+                "", required=False)
     argv = ["clean_excel.py", src, "-o", out]
     if dedup:
         argv += ["--dedup-by", dedup]
@@ -168,7 +211,17 @@ def opt_reconcile():
     print("\n--- 两表对账 ---\n")
     a = ask("表 A 的路径（比如系统导出的表）")
     b = ask("表 B 的路径（比如手工记的表）")
-    key = ask("用哪一列匹配两张表", "订单号")
+
+    cols_a = peek_columns(a)
+    cols_b = peek_columns(b)
+    if cols_a:
+        print("\n表 A 的列：" + "  |  ".join(cols_a))
+    if cols_b:
+        print("表 B 的列：" + "  |  ".join(cols_b))
+    if cols_a or cols_b:
+        print()
+
+    key = ask("用哪一列匹配两张表（填上面都有的列名）", "订单号")
     compare = ask("要比对哪一列", "金额")
     out = ask("结果保存成", "对账结果.xlsx")
     tool = load_tool("reconcile")
