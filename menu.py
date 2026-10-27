@@ -19,21 +19,39 @@ try:
 except Exception:
     pass
 
-# ---------- 依赖检查（必须在导入工具之前）----------
-_missing = []
-for _m in ("pandas", "openpyxl"):
-    try:
-        __import__(_m)
-    except ImportError:
-        _missing.append(_m)
-if _missing:
-    print("\n缺少运行需要的组件：", "、".join(_missing))
-    print("请联系卖家，或在命令行运行：")
-    print("    python -m pip install " + " ".join(_missing))
-    input("\n按回车退出...")
-    sys.exit(1)
+# ---------- 延迟导入：菜单要秒开，pandas 等用到时再加载 ----------
+_TOOLS = {}
 
-from tools import batch_rename, clean_excel, merge_excel, reconcile
+
+def load_tool(name):
+    """第一次真正用到某个工具时才导入它。
+
+    pandas + openpyxl 导入要 0.9 秒左右。放在启动时，客户会觉得"双击了没反应"；
+    放到选完功能以后再导入，菜单就能立刻出现。
+
+    非打包运行时顺带检查依赖；打包成 exe 后依赖已内置，不必检查。
+    """
+    if not _TOOLS:
+        if not getattr(sys, "frozen", False):
+            _missing = []
+            for _m in ("pandas", "openpyxl"):
+                try:
+                    __import__(_m)
+                except ImportError:
+                    _missing.append(_m)
+            if _missing:
+                print("\n缺少运行需要的组件：", "、".join(_missing))
+                print("请运行：python -m pip install " + " ".join(_missing))
+                read("按回车返回菜单...")
+                return None
+        from tools import batch_rename, clean_excel, merge_excel, reconcile
+        _TOOLS.update(
+            batch_rename=batch_rename,
+            clean_excel=clean_excel,
+            merge_excel=merge_excel,
+            reconcile=reconcile,
+        )
+    return _TOOLS.get(name)
 
 
 def show_menu():
@@ -104,7 +122,9 @@ def opt_rename():
     argv = ["batch_rename.py", folder, "--ext", ext, "--prefix", prefix]
     if preview.lower() != "n":
         argv.append("--dry-run")
-    run(batch_rename.main, argv)
+    tool = load_tool("batch_rename")
+    if tool:
+        run(tool.main, argv)
 
 
 def opt_merge():
@@ -112,7 +132,9 @@ def opt_merge():
     print("把要合并的文件都放进同一个文件夹，然后告诉我文件夹在哪。\n")
     folder = ask("文件夹路径")
     out = ask("结果保存成", "合并结果.xlsx")
-    run(merge_excel.main, ["merge_excel.py", folder, "-o", out])
+    tool = load_tool("merge_excel")
+    if tool:
+        run(tool.main, ["merge_excel.py", folder, "-o", out])
 
 
 def opt_clean():
@@ -123,7 +145,9 @@ def opt_clean():
     argv = ["clean_excel.py", src, "-o", out]
     if dedup:
         argv += ["--dedup-by", dedup]
-    run(clean_excel.main, argv)
+    tool = load_tool("clean_excel")
+    if tool:
+        run(tool.main, argv)
 
 
 def opt_reconcile():
@@ -133,8 +157,10 @@ def opt_reconcile():
     key = ask("用哪一列匹配两张表", "订单号")
     compare = ask("要比对哪一列", "金额")
     out = ask("结果保存成", "对账结果.xlsx")
-    run(reconcile.main,
-        ["reconcile.py", a, b, "--key", key, "--compare", compare, "-o", out])
+    tool = load_tool("reconcile")
+    if tool:
+        run(tool.main,
+            ["reconcile.py", a, b, "--key", key, "--compare", compare, "-o", out])
 
 
 def main():
