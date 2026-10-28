@@ -44,13 +44,15 @@ def load_tool(name):
                 print("请运行：python -m pip install " + " ".join(_missing))
                 read("按回车返回菜单...")
                 return None
-        from tools import batch_rename, clean_excel, merge_excel, pdf_merge, reconcile
+        from tools import (batch_rename, clean_excel, merge_excel, pdf_merge,
+                           reconcile, word_tool)
         _TOOLS.update(
             batch_rename=batch_rename,
             clean_excel=clean_excel,
             merge_excel=merge_excel,
             pdf_merge=pdf_merge,
             reconcile=reconcile,
+            word_tool=word_tool,
         )
     return _TOOLS.get(name)
 
@@ -65,6 +67,7 @@ def show_menu():
     print("  3  清洗 Excel（去重 / 补空 / 统一日期）")
     print("  4  两表对账（找出对不上的记录）")
     print("  5  PDF 合并 / 拆分 / 抽取页面")
+    print("  6  Word 批量处理（替换 / 提取文字 / 汇总表格）")
     print("  0  退出")
     print("-" * 48)
 
@@ -279,12 +282,45 @@ def opt_pdf():
         print("\n没有这个选项。")
 
 
+def opt_word():
+    print("\n--- Word 批量处理 ---\n")
+    print("  1) 批量替换文字（比如把「甲公司」全部换成「乙公司」）")
+    print("  2) 把多个 Word 的文字提取到一个 txt")
+    print("  3) 把多个 Word 里的表格汇总成一个 Excel")
+    mode = ask("选哪个？输入编号", "1")
+
+    tool = load_tool("word_tool")
+    if not tool:
+        return
+
+    if mode == "1":
+        folder = ask("放 Word 文件的文件夹路径")
+        old = ask("要把哪段文字替换掉？")
+        new = ask("换成什么？直接回车 = 删掉这段文字", "", required=False)
+        out = ask("结果保存到哪个文件夹", "替换结果")
+        preview = ask("先预览？输入 n 直接替换", "y")
+        argv = ["word_tool.py", folder, "--replace", "--old", old, "--new", new, "-o", out]
+        if preview.lower() != "n":
+            argv.append("--dry-run")
+        run(tool.main, argv)
+    elif mode == "2":
+        folder = ask("放 Word 文件的文件夹路径")
+        out = ask("保存成", "全部文字.txt")
+        run(tool.main, ["word_tool.py", folder, "--extract", "-o", out])
+    elif mode == "3":
+        folder = ask("放 Word 文件的文件夹路径")
+        out = ask("保存成", "表格汇总.xlsx")
+        run(tool.main, ["word_tool.py", folder, "--tables", "-o", out])
+    else:
+        print("\n没有这个选项。")
+
+
 def main():
     actions = {"1": opt_rename, "2": opt_merge, "3": opt_clean,
-               "4": opt_reconcile, "5": opt_pdf}
+               "4": opt_reconcile, "5": opt_pdf, "6": opt_word}
     while True:
         show_menu()
-        choice = read("请选择 0-5: ")
+        choice = read("请选择 0-6: ")
         if choice is None or choice == "0":
             print("\n再见。")
             break

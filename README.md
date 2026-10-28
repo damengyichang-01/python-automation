@@ -41,6 +41,8 @@ build_exe.bat fast   # 文件夹版（启动快 10 倍，自己用）
 | `tools/clean_excel.py` | 清洗 Excel：去重、补空、统一日期格式 | `python tools/clean_excel.py "数据.xlsx" -o 结果.xlsx` |
 | `tools/reconcile.py` | 两表对账：找出只在A、只在B、字段不符的记录（支持多列比对） | `python tools/reconcile.py a.xlsx b.xlsx --key 订单号 --compare 金额,客户` |
 | `tools/pdf_merge.py` | PDF 合并 / 拆分成单页 / 抽取指定页 | `python tools/pdf_merge.py "PDF文件夹" -o 合并结果.pdf` |
+| `tools/word_tool.py` | Word 批量替换文字 / 提取全部文字 / 汇总所有表格 | `python tools/word_tool.py "文件夹" --replace --old 甲公司 --new 乙公司` |
+| `tools/index_code.py` | 生成代码索引（开发用） | `python tools/index_code.py` |
 | `menu.py` | 菜单式入口，供不熟悉命令行的人使用 | 双击 `启动工具包.bat` |
 
 ### batch_rename.py
@@ -121,7 +123,7 @@ python -m pip install -r requirements.txt
 - [x] 第 1 周：两表对账（支持多列比对、差异字段标注）
 - [x] 第 2 周：打包成可交付的工具包（菜单 + 双击启动 + 单文件 exe）
 - [x] 第 2 周：PDF 合并 / 拆分 / 抽取页面
-- [ ] 第 2 周：Word 批量处理
+- [x] 第 2 周：Word 批量替换 / 提取文字 / 汇总表格
 - [ ] 第 3 周：上架试卖，拿到第一笔收入
 
 ## 测试数据
