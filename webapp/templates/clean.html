@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}清洗 Excel{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>清洗 Excel</h1>
+  <p class="sub">去重、补空、统一日期格式，一键搞定并给出清洗报告</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/clean" method="post" enctype="multipart/form-data">
+    <label for="file">选择要清洗的 Excel 文件</label>
+    <input id="file" type="file" name="file" accept=".xlsx,.xlsm" required>
+
+    <label for="dedup_by" style="margin-top:18px;">按哪一列去重？（可不填）</label>
+    <input id="dedup_by" type="text" name="dedup_by" placeholder="比如：订单号">
+    <p class="hint">
+      · 填了列名 → 该列重复就算重复，只保留第一条<br>
+      · 不填 → 整行完全一样才删<br>
+      · 日期会自动识别列名里带「日期 / 时间 / date」的列，统一成 2026-10-17
+    </p>
+
+    <button type="submit">开始清洗</button>
+  </form>
+</div>
+{% endblock %}

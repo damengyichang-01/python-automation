@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回首页</a>
+
+<header>
+  <h1>{{ title }}</h1>
+</header>
+
+<div class="panel">
+  <div class="ok">✅ 处理完成</div>
+
+  <table class="report">
+    {% for k, v in report %}
+      <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+    {% endfor %}
+  </table>
+
+  <h3 style="margin-top:24px; font-size:15px;">前 10 行预览</h3>
+  <div class="tablewrap">{{ preview | safe }}</div>
+
+  <a class="btn" href="{{ download_url }}">下载 {{ filename }}</a>
+  <p class="hint">下载链接 10 分钟内有效，下载后自动删除临时文件。</p>
+</div>
+{% endblock %}

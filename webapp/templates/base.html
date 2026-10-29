@@ -44,7 +44,37 @@
       padding: 12px 14px; border-radius: 8px; margin-bottom: 18px; font-size: 14px;
     }
     .hint { font-size: 13px; color: #6b7280; margin-top: 10px; }
+    input[type=text] {
+      display: block; width: 100%; padding: 10px 12px; font-size: 14px;
+      border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+      font-family: inherit;
+    }
+    input[type=text]:focus { outline: none; border-color: #2e75b6; }
     a.back { display: inline-block; margin-bottom: 18px; font-size: 14px; color: #2e75b6; text-decoration: none; }
+    a.btn {
+      display: inline-block; margin-top: 20px; padding: 11px 22px;
+      font-size: 15px; font-weight: 600; color: #fff; background: #548235;
+      border-radius: 8px; text-decoration: none;
+    }
+    a.btn:hover { background: #446a2b; }
+    .ok {
+      background: #f0f9f0; border: 1px solid #bbdfbb; color: #2f6b2f;
+      padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 18px;
+    }
+    table.report { border-collapse: collapse; font-size: 14px; }
+    table.report th {
+      text-align: left; padding: 7px 18px 7px 0; font-weight: 600; color: #374151;
+      white-space: nowrap;
+    }
+    table.report td { padding: 7px 0; color: #1f2937; }
+    .tablewrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+    table.preview { border-collapse: collapse; font-size: 12px; width: 100%; }
+    table.preview th, table.preview td {
+      padding: 7px 10px; border-bottom: 1px solid #eef1f5; text-align: left;
+      white-space: nowrap;
+    }
+    table.preview th { background: #f7f9fc; font-weight: 600; color: #374151; }
+    table.preview tr:last-child td { border-bottom: 0; }
     footer { margin-top: 40px; font-size: 12px; color: #9ca3af; text-align: center; }
   </style>
 </head>

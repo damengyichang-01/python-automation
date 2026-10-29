@@ -65,7 +65,10 @@ def find_date_columns(df: pd.DataFrame) -> list:
 
 
 def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
-    """执行清洗，返回 (清洗后的 df, 清洗报告 dict)。"""
+    """执行清洗，返回 (清洗后的 df, 清洗报告 dict)。
+
+    出错抛 ValueError，不调用 sys.exit —— 网页版也要复用它。
+    """
     report = {}
     rows_before = len(df)
 
@@ -73,7 +76,7 @@ def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
     if dedup_by:
         missing = [c for c in dedup_by if c not in df.columns]
         if missing:
-            sys.exit(f"去重依据的列不存在：{', '.join(missing)}")
+            raise ValueError(f"去重依据的列不存在：{', '.join(missing)}")
         df = df.drop_duplicates(subset=dedup_by, keep="first").copy()
     else:
         df = df.drop_duplicates(keep="first").copy()
@@ -83,7 +86,7 @@ def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
     if fill_cols:
         missing = [c for c in fill_cols if c not in df.columns]
         if missing:
-            sys.exit(f"补空的列不存在：{', '.join(missing)}")
+            raise ValueError(f"补空的列不存在：{', '.join(missing)}")
         targets = fill_cols
     else:
         targets = [c for c in df.columns if df[c].isna().any()]
@@ -112,6 +115,25 @@ def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
     return df, report
 
 
+def clean_file(src, dedup_by=None, fill_cols=None, date_cols=None, reset_index=True):
+    """读一个 Excel 文件并清洗，返回 (清洗后的 df, 报告 dict)。
+
+    供网页版调用：只管数据，不打印、不退出。
+    """
+    src = Path(src)
+    if not src.is_file():
+        raise ValueError(f"文件不存在：{src}")
+
+    df = pd.read_excel(src)
+    cleaned, report = clean(df, dedup_by=dedup_by, fill_cols=fill_cols, date_cols=date_cols)
+    if reset_index:
+        cleaned = cleaned.reset_index(drop=True)
+    report["原始行数"] = report.get("原始行数", len(df))
+    report["清洗后行数"] = len(cleaned)
+    report["列名"] = [str(c) for c in cleaned.columns]
+    return cleaned, report
+
+
 def main():
     p = argparse.ArgumentParser(description="清洗 Excel 数据：去重、补空、统一日期")
     p.add_argument("source", help="要清洗的 Excel 文件")
@@ -136,8 +158,11 @@ def main():
     dedup_by = [c.strip() for c in args.dedup_by.split(",") if c.strip()] or None
     fill_cols = [c.strip() for c in args.fill_cols.split(",") if c.strip()] or None
     date_cols = [c.strip() for c in args.date_cols.split(",") if c.strip()] if args.date_cols else None
-        
-    cleaned, report = clean(df, dedup_by=dedup_by, fill_cols=fill_cols, date_cols=date_cols)
+
+    try:
+        cleaned, report = clean(df, dedup_by=dedup_by, fill_cols=fill_cols, date_cols=date_cols)
+    except ValueError as e:
+        sys.exit(str(e))
 
     if not args.keep_index:
         cleaned = cleaned.reset_index(drop=True)
