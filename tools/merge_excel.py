@@ -81,6 +81,62 @@ def merge(frames, align: str):
     return pd.concat(prepared, ignore_index=True, sort=False)
 
 
+def merge_folder(folder, align="name", keep=None, all_sheets=False, add_source=True):
+    """合并一个文件夹里的 Excel/CSV，返回 (合并后的 DataFrame, 信息 dict)。
+
+    和 main() 的区别：不读命令行、不打印、不 sys.exit。
+    出错抛 ValueError，由调用方决定怎么展示 —— 这样网页版也能直接复用。
+    """
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise ValueError(f"目录不存在: {folder}")
+
+    files = collect_files(folder)
+    if not files:
+        raise ValueError(f"在 {folder} 里没找到 .xlsx / .xlsm / .csv 文件")
+
+    frames = []
+    read_lines = []
+    for f in files:
+        try:
+            parts = read_one(f, all_sheets)
+        except Exception as e:
+            read_lines.append(f"[跳过] {f.name} —— 读取失败：{e}")
+            continue
+        for sheet_name, df in parts:
+            source = f.name if not all_sheets else f"{f.name} › {sheet_name}"
+            frames.append((source, df))
+            read_lines.append(f"[读取] {source}  {len(df)} 行 × {len(df.columns)} 列")
+
+    if not frames:
+        raise ValueError("没有任何文件读取成功")
+
+    all_cols = []
+    for _, df in frames:
+        for c in df.columns:
+            if c not in all_cols:
+                all_cols.append(c)
+
+    merged = merge(frames, align)
+    if merged is None:
+        raise ValueError("合并失败：没有可用数据")
+
+    if keep:
+        missing = [c for c in keep if c not in merged.columns]
+        if missing:
+            raise ValueError(f"这些列在合并结果里不存在：{', '.join(missing)}")
+        merged = merged[keep]
+
+    if not add_source and "_来源文件" in merged.columns:
+        merged = merged.drop(columns=["_来源文件"])
+
+    return merged, {
+        "file_count": len(files),
+        "read_lines": read_lines,
+        "all_cols": [str(c) for c in all_cols],
+    }
+
+
 def main():
     p = argparse.ArgumentParser(description="把多张 Excel/CSV 合并成一张表")
     p.add_argument("folder", help="存放要合并文件的目录")
@@ -94,51 +150,23 @@ def main():
     args = p.parse_args()
 
     folder = Path(args.folder)
-    if not folder.is_dir():
-        sys.exit(f"目录不存在: {folder}")
+    keep = [c.strip() for c in args.keep.split(",") if c.strip()] or None
 
-    files = collect_files(folder)
-    if not files:
-        sys.exit(f"在 {folder} 里没找到 .xlsx / .xlsm / .csv 文件")
+    try:
+        merged, info = merge_folder(
+            folder,
+            align=args.align,
+            keep=keep,
+            all_sheets=args.all_sheets,
+            add_source=not args.no_source,
+        )
+    except ValueError as e:
+        sys.exit(str(e))
 
-    print(f"找到 {len(files)} 个文件：")
-    frames = []
-    for f in files:
-        try:
-            parts = read_one(f, args.all_sheets)
-        except Exception as e:
-            print(f"  [跳过] {f.name} —— 读取失败：{e}")
-            continue
-        for sheet_name, df in parts:
-            source = f.name if not args.all_sheets else f"{f.name} › {sheet_name}"
-            frames.append((source, df))
-            print(f"  [读取] {source}  {len(df)} 行 × {len(df.columns)} 列")
-
-    if not frames:
-        sys.exit("没有任何文件读取成功")
-
-    # 预览各文件列名差异
-    all_cols = []
-    for _, df in frames:
-        for c in df.columns:
-            if c not in all_cols:
-                all_cols.append(c)
-    print(f"\n全部列名（共 {len(all_cols)} 个）：{', '.join(map(str, all_cols))}")
-
-    merged = merge(frames, args.align)
-    if merged is None:
-        sys.exit("合并失败：没有可用数据")
-
-    if args.keep:
-        keep = [c.strip() for c in args.keep.split(",") if c.strip()]
-        missing = [c for c in keep if c not in merged.columns]
-        if missing:
-            sys.exit(f"这些列在合并结果里不存在：{', '.join(missing)}")
-        merged = merged[keep]
-
-    if args.no_source and "_来源文件" in merged.columns:
-        merged = merged.drop(columns=["_来源文件"])
-
+    print(f"找到 {info['file_count']} 个文件：")
+    for line in info["read_lines"]:
+        print("  " + line)
+    print(f"\n全部列名（共 {len(info['all_cols'])} 个）：{', '.join(info['all_cols'])}")
     print(f"\n{'=' * 50}")
     print(f"合并结果：{len(merged)} 行 × {len(merged.columns)} 列")
     if "_来源文件" in merged.columns:

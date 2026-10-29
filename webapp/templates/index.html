@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}办公自动化工具包 · 首页{% endblock %}
+
+{% block content %}
+<header>
+  <h1>办公自动化工具包</h1>
+  <p class="sub">把重复的表格和文件操作，变成点几下就完成</p>
+</header>
+
+<div class="cards">
+  {% for t in tools %}
+    {% if t.done %}
+      <a class="card" href="/{{ t.slug }}">
+        <div class="no">功能 {{ t.no }}</div>
+        <div class="name">{{ t.name }}</div>
+        <div class="desc">{{ t.desc }}</div>
+      </a>
+    {% else %}
+      <div class="card soon">
+        <div class="no">功能 {{ t.no }}</div>
+        <div class="name">{{ t.name }}<span class="badge">建设中</span></div>
+        <div class="desc">{{ t.desc }}</div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}合并多个 Excel / CSV{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>合并多个 Excel / CSV</h1>
+  <p class="sub">多张表合成一张，按列名自动对齐，列顺序不一样也不会错行</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/merge" method="post" enctype="multipart/form-data">
+    <label for="files">选择要合并的文件（可多选）</label>
+    <input id="files" type="file" name="files" multiple
+           accept=".xlsx,.xlsm,.csv" required>
+    <p class="hint">支持 .xlsx / .xlsm / .csv，一次可以选多个。合并后会多一列「_来源文件」标明每行来自哪个文件。</p>
+    <button type="submit">开始合并</button>
+  </form>
+</div>
+{% endblock %}
