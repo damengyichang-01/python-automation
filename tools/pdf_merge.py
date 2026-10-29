@@ -74,6 +74,40 @@ def parse_pages(spec, total):
     return ordered
 
 
+def merge_pdfs(folder, output):
+    """把一个文件夹里的 PDF 按文件名自然顺序合并，返回信息 dict。
+
+    供网页版调用：不打印、不退出，出错抛 ValueError。
+    """
+    files = collect_pdfs(Path(folder))
+    if not files:
+        raise ValueError(f"在 {folder} 里没找到 PDF 文件")
+
+    writer = PdfWriter()
+    total = 0
+    detail = []
+    for f in files:
+        try:
+            reader = PdfReader(str(f))
+        except Exception as e:
+            detail.append({"name": f.name, "pages": 0, "note": f"跳过：{e}"})
+            continue
+        n = len(reader.pages)
+        total += n
+        detail.append({"name": f.name, "pages": n, "note": ""})
+        for page in reader.pages:
+            writer.add_page(page)
+
+    if total == 0:
+        raise ValueError("没有可用的 PDF 页面，请确认上传的是有效 PDF")
+
+    out = Path(output)
+    if out.parent and not out.parent.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+    writer.write(str(out))
+    return {"files": detail, "pages": total, "count": len(files)}
+
+
 def do_merge(folder, output, dry_run):
     files = collect_pdfs(folder)
     if not files:

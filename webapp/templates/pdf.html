@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}PDF 合并{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>PDF 合并</h1>
+  <p class="sub">多个 PDF 按文件名顺序合成一个，页序按数字自然排列</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/pdf" method="post" enctype="multipart/form-data">
+    <label for="files">选择要合并的 PDF（可多选）</label>
+    <input id="files" type="file" name="files" multiple accept=".pdf" required>
+    <p class="hint">
+      · 合并顺序按文件名里的数字自然排序：<code>1.pdf → 2.pdf → 10.pdf</code>，不会变成 1 → 10 → 2<br>
+      · 建议给文件起名时用数字开头，比如 <code>01.pdf</code>、<code>02.pdf</code>
+    </p>
+    <button type="submit">开始合并</button>
+  </form>
+</div>
+{% endblock %}

@@ -22,6 +22,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from tools.clean_excel import clean_file  # noqa: E402
 from tools.merge_excel import merge_folder  # noqa: E402
+from tools.pdf_merge import merge_pdfs  # noqa: E402
 from tools.reconcile import reconcile_files  # noqa: E402
 
 import pandas as pd  # noqa: E402
@@ -33,9 +34,9 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 TOOLS = [
     {"slug": "merge", "no": 1, "name": "合并多个 Excel / CSV", "desc": "多张表合成一张，按列名自动对齐", "done": True},
     {"slug": "clean", "no": 2, "name": "清洗 Excel", "desc": "去重、补空、统一日期格式", "done": True},
-    {"slug": "reconcile", "no": 3, "name": "两表对账", "desc": "找出只在A、只在B、字段不符的记录", "done": False},
+    {"slug": "reconcile", "no": 3, "name": "两表对账", "desc": "找出只在A、只在B、字段不符的记录", "done": True},
     {"slug": "rename", "no": 4, "name": "批量重命名", "desc": "给文件加序号和前缀", "done": False},
-    {"slug": "pdf", "no": 5, "name": "PDF 合并 / 拆分", "desc": "多个 PDF 合成一个，或拆成单页", "done": False},
+    {"slug": "pdf", "no": 5, "name": "PDF 合并 / 拆分", "desc": "多个 PDF 合成一个，或拆成单页", "done": True},
     {"slug": "word", "no": 6, "name": "Word 批量处理", "desc": "批量替换文字、汇总表格", "done": False},
 ]
 
@@ -250,4 +251,59 @@ async def reconcile_submit(
         "download_url": f"/download/{token}",
         "filename": "对账结果.xlsx",
     })
+
+
+# ---------------- 功能 4：PDF 合并 ----------------
+@app.get("/pdf", response_class=HTMLResponse)
+def pdf_page(request: Request):
+    return templates.TemplateResponse(request, "pdf.html", {"error": None})
+
+
+@app.post("/pdf")
+async def pdf_submit(request: Request, files: list[UploadFile] = File(...)):
+    if not files:
+        return templates.TemplateResponse(
+            request, "pdf.html", {"error": "没有收到文件，请重新选择"}, status_code=400
+        )
+
+    work = Path(tempfile.mkdtemp(prefix="pdf_"))
+    try:
+        for f in files:
+            await save_upload(f, work)
+        out = work / "合并结果.pdf"
+        info = merge_pdfs(work, out)
+    except ValueError as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "pdf.html", {"error": friendly_error(str(e), work)}, status_code=400
+        )
+    except Exception as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "pdf.html",
+            {"error": f"处理失败：{type(e).__name__}: {e}"}, status_code=500
+        )
+
+    token = store_result(out, "合并结果.pdf")
+    rows = "".join(
+        f"<tr><td>{d['name']}</td><td style='text-align:right'>{d['pages']}</td>"
+        f"<td>{d['note']}</td></tr>"
+        for d in info["files"]
+    )
+    preview = (
+        "<table class='preview'><thead><tr><th>文件</th>"
+        "<th style='text-align:right'>页数</th><th>说明</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+    return templates.TemplateResponse(request, "result.html", {
+        "title": "PDF 合并完成",
+        "report": [
+            ("文件数", f"{info['count']} 个"),
+            ("合计页数", f"{info['pages']} 页"),
+        ],
+        "preview": preview,
+        "download_url": f"/download/{token}",
+        "filename": "合并结果.pdf",
+    })
+
 
