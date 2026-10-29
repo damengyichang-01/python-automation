@@ -53,6 +53,48 @@ def reconcile(df_a, df_b, key, compare_cols):
     return only_a, only_b, diff
 
 
+def reconcile_files(file_a, file_b, key="订单号", compare_cols=None):
+    """读两个 Excel 文件并对账，返回 (only_a, only_b, diff, info)。
+
+    供网页版调用：不打印、不退出，出错抛 ValueError。
+    """
+    file_a, file_b = Path(file_a), Path(file_b)
+    for p, name in ((file_a, "表 A"), (file_b, "表 B")):
+        if not p.is_file():
+            raise ValueError(f"{name} 的文件不存在：{p}")
+
+    compare_cols = [c for c in (compare_cols or ["金额"]) if c]
+    if not compare_cols:
+        raise ValueError("至少要指定一列要比对的字段")
+
+    try:
+        df_a = pd.read_excel(file_a)
+        df_b = pd.read_excel(file_b)
+    except Exception as e:
+        raise ValueError(f"表格打不开：{e}")
+
+    # 列名写错时给出可用列，别让用户对着 KeyError 猜
+    for df, name in ((df_a, "表 A"), (df_b, "表 B")):
+        cols = [str(c) for c in df.columns]
+        if key not in cols:
+            raise ValueError(f"{name} 里没有「{key}」这一列。可用列：{', '.join(cols)}")
+        absent = [c for c in compare_cols if c not in cols]
+        if absent:
+            raise ValueError(
+                f"{name} 里没有这几列：{'、'.join(absent)}。可用列：{', '.join(cols)}"
+            )
+
+    only_a, only_b, diff = reconcile(df_a, df_b, key, compare_cols)
+    return only_a, only_b, diff, {
+        "rows_a": len(df_a),
+        "rows_b": len(df_b),
+        "key": key,
+        "compare_cols": compare_cols,
+        "cols_a": [str(c) for c in df_a.columns],
+        "cols_b": [str(c) for c in df_b.columns],
+    }
+
+
 def main():
     p = argparse.ArgumentParser(description="两表对账")
     p.add_argument("file_a", help="表 A（比如系统导出）")
@@ -63,34 +105,17 @@ def main():
     p.add_argument("-o", "--output", default="对账结果.xlsx", help="输出文件名")
     args = p.parse_args()
 
-    for path, name in ((args.file_a, "表 A"), (args.file_b, "表 B")):
-        if not Path(path).is_file():
-            sys.exit(f"{name} 的文件不存在：{path}")
-
-    df_a = pd.read_excel(args.file_a)
-    df_b = pd.read_excel(args.file_b)
-    print(f"A 表：{len(df_a)} 行，B 表：{len(df_b)} 行")
-
     compare_cols = [c.strip() for c in args.compare.split(",") if c.strip()]
-    if not compare_cols:
-        sys.exit("--compare 至少要指定一列")
 
-    # 列名写错时给出可用列，别让用户对着 KeyError 猜
-    for df, name in ((df_a, "表 A"), (df_b, "表 B")):
-        cols = [str(c) for c in df.columns]
-        if args.key not in cols:
-            sys.exit(f"{name} 里没有「{args.key}」这一列。\n"
-                     f"可用列：{', '.join(cols)}\n"
-                     f"用 --key 指定正确的列名。")
-        absent = [c for c in compare_cols if c not in cols]
-        if absent:
-            sys.exit(f"{name} 里没有这几列：{'、'.join(absent)}\n"
-                     f"可用列：{', '.join(cols)}\n"
-                     f"用 --compare 指定正确的列名，多列用逗号隔开。")
+    try:
+        only_a, only_b, diff, info = reconcile_files(
+            args.file_a, args.file_b, key=args.key, compare_cols=compare_cols
+        )
+    except ValueError as e:
+        sys.exit(str(e))
 
-    print(f"比对字段：{'、'.join(compare_cols)}")
-
-    only_a, only_b, diff = reconcile(df_a, df_b, args.key, compare_cols)
+    print(f"A 表：{info['rows_a']} 行，B 表：{info['rows_b']} 行")
+    print(f"比对字段：{'、'.join(info['compare_cols'])}")
 
     print(f"\n只在 A 表：{len(only_a)} 条")
     print(f"只在 B 表：{len(only_b)} 条")

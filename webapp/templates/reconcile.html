@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}两表对账{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>两表对账</h1>
+  <p class="sub">算出「只在 A 表」「只在 B 表」「字段对不上」三类记录，直接标出差别在哪</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/reconcile" method="post" enctype="multipart/form-data">
+    <label for="file_a">表 A（比如系统导出）</label>
+    <input id="file_a" type="file" name="file_a" accept=".xlsx,.xlsm" required>
+
+    <label for="file_b" style="margin-top:18px;">表 B（比如手工记录）</label>
+    <input id="file_b" type="file" name="file_b" accept=".xlsx,.xlsm" required>
+
+    <label for="key" style="margin-top:18px;">用哪一列匹配两张表？</label>
+    <input id="key" type="text" name="key" value="订单号">
+    <p class="hint">填两张表里都有的列名，比如「订单号」「编号」。</p>
+
+    <label for="compare" style="margin-top:18px;">比对哪些字段？</label>
+    <input id="compare" type="text" name="compare" value="金额">
+    <p class="hint">
+      · 可以填多个，用英文逗号隔开，比如：<code>金额,客户</code><br>
+      · 填多个时，任意一个字段不同就会报出来
+    </p>
+
+    <button type="submit">开始对账</button>
+  </form>
+</div>
+{% endblock %}

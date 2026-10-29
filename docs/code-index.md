@@ -1,7 +1,7 @@
 # 代码索引
 
 > 自动生成，不要手改。重新生成：`python tools/index_code.py`
-共 9 个文件、61 个函数/类/常量。
+共 9 个文件、72 个函数/类/常量。
 
 
 ## `menu.py`
@@ -46,7 +46,8 @@ Excel 数据清洗工具 —— 去重、补空、统一日期格式。
 | 26 | 函数 | `to_date_series` | 把乱七八糟的日期字符串统一成 2026-10-17 这种格式。 |
 | 61 | 函数 | `find_date_columns` | 自动找列名里带 日期/时间/date 的列。 |
 | 67 | 函数 | `clean` | 执行清洗，返回 (清洗后的 df, 清洗报告 dict)。 |
-| 115 | 函数 | `main` |  |
+| 118 | 函数 | `clean_file` | 读一个 Excel 文件并清洗，返回 (清洗后的 df, 报告 dict)。 |
+| 137 | 函数 | `main` |  |
 
 ## `tools/index_code.py`
 
@@ -98,7 +99,8 @@ PDF 合并 / 拆分 / 抽取页面。
 |---:|---|---|---|
 | 14 | 函数 | `field_differs` | 两列逐行比较，返回"这一行该字段是否不同"的布尔序列。 |
 | 22 | 函数 | `reconcile` | 返回三个 DataFrame：(只在一表, 只在二表, 值不同)。 |
-| 56 | 函数 | `main` |  |
+| 56 | 函数 | `reconcile_files` | 读两个 Excel 文件并对账，返回 (only_a, only_b, diff… |
+| 98 | 函数 | `main` |  |
 
 ## `tools/word_tool.py`
 
@@ -120,10 +122,19 @@ Word 批量处理：批量替换文字、提取全部文字、汇总所有表格
 
 | 行 | 类型 | 名称 | 说明 |
 |---:|---|---|---|
-| 18 | 常量 | `BASE_DIR` |  |
-| 27 | 常量 | `TOOLS` |  |
-| 38 | 函数 | `index` |  |
-| 43 | 函数 | `merge_page` |  |
-| 47 | 函数 | `friendly_error` | 把内部错误信息翻译成客户能看懂的话，顺便藏掉服务器路径。 |
-| 58 | 函数 | `merge_submit` | 接收多个文件，合并，然后把结果直接下载给浏览器。 |
-| 100 | 函数 | `health` |  |
+| 20 | 常量 | `BASE_DIR` |  |
+| 33 | 常量 | `TOOLS` |  |
+| 46 | 常量 | `_RESULTS` |  |
+| 47 | 常量 | `_RESULT_TTL` |  |
+| 50 | 函数 | `store_result` | 登记一个待下载的结果，返回下载用的 token。 |
+| 62 | 函数 | `friendly_error` | 把内部错误信息翻译成客户能看懂的话，顺便藏掉服务器路径。 |
+| 72 | 函数 | `save_upload` | 把上传的文件写到指定目录，返回落盘路径。 |
+| 82 | 函数 | `index` |  |
+| 87 | 函数 | `health` |  |
+| 92 | 函数 | `download` |  |
+| 106 | 函数 | `merge_page` |  |
+| 111 | 函数 | `merge_submit` |  |
+| 146 | 函数 | `clean_page` |  |
+| 151 | 函数 | `clean_submit` |  |
+| 194 | 函数 | `reconcile_page` |  |
+| 199 | 函数 | `reconcile_submit` |  |

@@ -22,6 +22,9 @@ sys.path.insert(0, str(BASE_DIR))
 
 from tools.clean_excel import clean_file  # noqa: E402
 from tools.merge_excel import merge_folder  # noqa: E402
+from tools.reconcile import reconcile_files  # noqa: E402
+
+import pandas as pd  # noqa: E402
 
 app = FastAPI(title="办公自动化工具包")
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
@@ -184,3 +187,67 @@ async def clean_submit(
         "download_url": f"/download/{token}",
         "filename": "清洗结果.xlsx",
     })
+
+
+# ---------------- 功能 3：两表对账 ----------------
+@app.get("/reconcile", response_class=HTMLResponse)
+def reconcile_page(request: Request):
+    return templates.TemplateResponse(request, "reconcile.html", {"error": None})
+
+
+@app.post("/reconcile")
+async def reconcile_submit(
+    request: Request,
+    file_a: UploadFile = File(...),
+    file_b: UploadFile = File(...),
+    key: str = Form("订单号"),
+    compare: str = Form("金额"),
+):
+    work = Path(tempfile.mkdtemp(prefix="rec_"))
+    try:
+        pa = await save_upload(file_a, work)
+        pb = await save_upload(file_b, work)
+        compare_cols = [c.strip() for c in compare.split(",") if c.strip()]
+        only_a, only_b, diff, info = reconcile_files(
+            pa, pb, key=(key.strip() or "订单号"), compare_cols=compare_cols
+        )
+        out = work / "对账结果.xlsx"
+        with pd.ExcelWriter(out) as w:
+            only_a.to_excel(w, sheet_name="只在A表", index=False)
+            only_b.to_excel(w, sheet_name="只在B表", index=False)
+            diff.to_excel(w, sheet_name="值不同", index=False)
+    except ValueError as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "reconcile.html",
+            {"error": friendly_error(str(e), work)}, status_code=400
+        )
+    except Exception as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "reconcile.html",
+            {"error": f"处理失败：{type(e).__name__}: {e}"}, status_code=500
+        )
+
+    token = store_result(out, "对账结果.xlsx")
+    if len(diff):
+        preview = diff.head(10).to_html(index=False, classes="preview", border=0)
+    else:
+        preview = "<p class='hint'>两边完全一致，没有发现差异 🎉</p>"
+
+    return templates.TemplateResponse(request, "result.html", {
+        "title": "对账完成",
+        "report": [
+            ("A 表", f"{info['rows_a']} 行"),
+            ("B 表", f"{info['rows_b']} 行"),
+            ("匹配用的列", info["key"]),
+            ("比对的字段", "、".join(info["compare_cols"])),
+            ("只在 A 表", f"{len(only_a)} 条"),
+            ("只在 B 表", f"{len(only_b)} 条"),
+            ("字段不符", f"{len(diff)} 条"),
+        ],
+        "preview": preview,
+        "download_url": f"/download/{token}",
+        "filename": "对账结果.xlsx",
+    })
+
