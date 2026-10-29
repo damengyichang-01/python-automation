@@ -5,12 +5,25 @@
     python batch_rename.py "目录" --ext .png --prefix 图片 --dry-run
 """
 import argparse
+import shutil
 from pathlib import Path
 
+try:
+    from tools.textutil import natural_key
+except ImportError:  # 直接用 python tools/xxx.py 运行时，按同目录导入
+    from textutil import natural_key
 
-def build_plan(folder: Path, ext: str, prefix: str, width: int,  sort_by: str = "name"):
-    """生成 [(原文件, 新文件名), ...]，不真正改名。"""
-    key = (lambda f: f.name) if sort_by == "name" else (lambda f: f.stat().st_mtime)
+
+def build_plan(folder: Path, ext: str, prefix: str, width: int, sort_by: str = "name"):
+    """生成 [(原文件, 新文件名), ...]，不真正改名。
+
+    按文件名排序时用自然排序：1.jpg、2.jpg、10.jpg，
+    否则字符串排序会变成 1、10、2，序号就错位了。
+    """
+    if sort_by == "name":
+        key = lambda f: natural_key(f.name)
+    else:
+        key = lambda f: f.stat().st_mtime
     files = sorted(
         [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() == ext.lower()],
         key=key
@@ -20,6 +33,40 @@ def build_plan(folder: Path, ext: str, prefix: str, width: int,  sort_by: str = 
         new_name = f"{prefix}_{i:0{width}d}{f.suffix}"
         plan.append((f, new_name))
     return plan
+
+
+def rename_files(src_folder, out_folder, prefix, width=3, sort_by="name"):
+    """把 src_folder 里所有文件改名后**复制**到 out_folder，返回 (输出目录, info)。
+
+    供网页版调用：网页改不了客户本地文件名，只能改名后打包给客户下载。
+    """
+    src = Path(src_folder)
+    files = [f for f in src.iterdir() if f.is_file() and not f.name.startswith("~$")]
+    if not files:
+        raise ValueError(f"在 {src_folder} 里没找到文件")
+    if not prefix:
+        raise ValueError("新文件名前缀不能为空")
+
+    if sort_by == "name":
+        files.sort(key=lambda f: natural_key(f.name))
+    else:
+        files.sort(key=lambda f: f.stat().st_mtime)
+
+    out = Path(out_folder)
+    out.mkdir(parents=True, exist_ok=True)
+
+    detail = []
+    used = set()
+    for i, f in enumerate(files, start=1):
+        new_name = f"{prefix}_{i:0{width}d}{f.suffix}"
+        # 极端情况下前缀+序号可能撞名，加个后缀避免覆盖
+        while new_name in used:
+            new_name = f"{prefix}_{i:0{width}d}_{len(used)}{f.suffix}"
+        used.add(new_name)
+        shutil.copy2(f, out / new_name)
+        detail.append({"old": f.name, "new": new_name})
+
+    return out, {"files": detail, "count": len(files)}
 
 
 def main():

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}批量重命名{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>批量重命名</h1>
+  <p class="sub">把文件改成「前缀_001」这样有规律的名字，改完打包下载</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/rename" method="post" enctype="multipart/form-data">
+    <label for="files">选择要改名的文件（可多选）</label>
+    <input id="files" type="file" name="files" multiple required>
+
+    <label for="prefix" style="margin-top:18px;">新名字的前缀</label>
+    <input id="prefix" type="text" name="prefix" value="文件">
+
+    <label for="width" style="margin-top:18px;">序号位数</label>
+    <input id="width" type="text" name="width" value="3">
+    <p class="hint">
+      · 位数 3 → <code>文件_001</code>、<code>文件_002</code>；位数 2 → <code>文件_01</code><br>
+      · 顺序按原文件名自然排序：<code>1.jpg → 2.jpg → 10.jpg</code><br>
+      · 网页改不了你电脑上的原文件，所以会打包成 zip 给你下载
+    </p>
+
+    <button type="submit">开始重命名</button>
+  </form>
+</div>
+{% endblock %}

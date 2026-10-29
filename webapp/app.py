@@ -20,10 +20,12 @@ from starlette.background import BackgroundTask
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
+from tools.batch_rename import rename_files  # noqa: E402
 from tools.clean_excel import clean_file  # noqa: E402
 from tools.merge_excel import merge_folder  # noqa: E402
 from tools.pdf_merge import merge_pdfs  # noqa: E402
 from tools.reconcile import reconcile_files  # noqa: E402
+from tools.word_tool import replace_in_folder  # noqa: E402
 
 import pandas as pd  # noqa: E402
 
@@ -35,9 +37,9 @@ TOOLS = [
     {"slug": "merge", "no": 1, "name": "合并多个 Excel / CSV", "desc": "多张表合成一张，按列名自动对齐", "done": True},
     {"slug": "clean", "no": 2, "name": "清洗 Excel", "desc": "去重、补空、统一日期格式", "done": True},
     {"slug": "reconcile", "no": 3, "name": "两表对账", "desc": "找出只在A、只在B、字段不符的记录", "done": True},
-    {"slug": "rename", "no": 4, "name": "批量重命名", "desc": "给文件加序号和前缀", "done": False},
+    {"slug": "rename", "no": 4, "name": "批量重命名", "desc": "给文件加序号和前缀", "done": True},
     {"slug": "pdf", "no": 5, "name": "PDF 合并 / 拆分", "desc": "多个 PDF 合成一个，或拆成单页", "done": True},
-    {"slug": "word", "no": 6, "name": "Word 批量处理", "desc": "批量替换文字、汇总表格", "done": False},
+    {"slug": "word", "no": 6, "name": "Word 批量处理", "desc": "批量替换文字、汇总表格", "done": True},
 ]
 
 
@@ -305,5 +307,136 @@ async def pdf_submit(request: Request, files: list[UploadFile] = File(...)):
         "download_url": f"/download/{token}",
         "filename": "合并结果.pdf",
     })
+
+
+# ---------------- 功能 5：Word 批量替换 ----------------
+@app.get("/word", response_class=HTMLResponse)
+def word_page(request: Request):
+    return templates.TemplateResponse(request, "word.html", {"error": None})
+
+
+@app.post("/word")
+async def word_submit(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    old: str = Form(""),
+    new: str = Form(""),
+):
+    if not files:
+        return templates.TemplateResponse(
+            request, "word.html", {"error": "没有收到文件，请重新选择"}, status_code=400
+        )
+
+    work = Path(tempfile.mkdtemp(prefix="word_"))
+    try:
+        src = work / "in"
+        src.mkdir()
+        for f in files:
+            await save_upload(f, src)
+        out_dir = work / "out"
+        out_dir, info = replace_in_folder(src, old, new, out_dir)
+        if info["changed"] == 0:
+            raise ValueError(f"所有文件里都没有找到「{old}」，没有可输出的文件")
+
+        # 多个 docx 打成 zip，浏览器一次下载
+        zip_base = work / "替换结果"
+        zip_path = Path(shutil.make_archive(str(zip_base), "zip", root_dir=str(out_dir)))
+    except ValueError as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "word.html", {"error": friendly_error(str(e), work)}, status_code=400
+        )
+    except Exception as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "word.html",
+            {"error": f"处理失败：{type(e).__name__}: {e}"}, status_code=500
+        )
+
+    token = store_result(zip_path, "替换结果.zip")
+    rows = "".join(
+        f"<tr><td>{d['name']}</td><td style='text-align:right'>{d['paras']}</td>"
+        f"<td>{d['note']}</td></tr>"
+        for d in info["files"]
+    )
+    preview = (
+        "<table class='preview'><thead><tr><th>文件</th>"
+        "<th style='text-align:right'>替换段数</th><th>说明</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+    return templates.TemplateResponse(request, "result.html", {
+        "title": "Word 替换完成",
+        "report": [
+            ("处理文件", f"{info['count']} 个"),
+            ("有替换的文件", f"{info['changed']} 个"),
+            ("替换段落合计", f"{info['total_hits']} 段"),
+        ],
+        "preview": preview,
+        "download_url": f"/download/{token}",
+        "filename": "替换结果.zip",
+    })
+
+
+# ---------------- 功能 6：批量重命名 ----------------
+@app.get("/rename", response_class=HTMLResponse)
+def rename_page(request: Request):
+    return templates.TemplateResponse(request, "rename.html", {"error": None})
+
+
+@app.post("/rename")
+async def rename_submit(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    prefix: str = Form("文件"),
+    width: int = Form(3),
+):
+    if not files:
+        return templates.TemplateResponse(
+            request, "rename.html", {"error": "没有收到文件，请重新选择"}, status_code=400
+        )
+
+    width = max(1, min(int(width or 3), 6))
+    work = Path(tempfile.mkdtemp(prefix="rename_"))
+    try:
+        src = work / "in"
+        src.mkdir()
+        for f in files:
+            await save_upload(f, src)
+        out_dir, info = rename_files(src, work / "out", prefix, width=width)
+        zip_base = work / "重命名结果"
+        zip_path = Path(shutil.make_archive(str(zip_base), "zip", root_dir=str(out_dir)))
+    except ValueError as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "rename.html", {"error": friendly_error(str(e), work)}, status_code=400
+        )
+    except Exception as e:
+        shutil.rmtree(work, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "rename.html",
+            {"error": f"处理失败：{type(e).__name__}: {e}"}, status_code=500
+        )
+
+    token = store_result(zip_path, "重命名结果.zip")
+    rows = "".join(
+        f"<tr><td>{d['old']}</td><td>→</td><td>{d['new']}</td></tr>"
+        for d in info["files"]
+    )
+    preview = (
+        "<table class='preview'><thead><tr><th>原文件名</th><th></th>"
+        f"<th>新文件名</th></tr></thead><tbody>{rows}</tbody></table>"
+    )
+    return templates.TemplateResponse(request, "result.html", {
+        "title": "重命名完成",
+        "report": [
+            ("文件数", f"{info['count']} 个"),
+            ("新名字前缀", prefix),
+        ],
+        "preview": preview,
+        "download_url": f"/download/{token}",
+        "filename": "重命名结果.zip",
+    })
+
+
 
 

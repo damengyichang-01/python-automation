@@ -1,7 +1,7 @@
 # 代码索引
 
 > 自动生成，不要手改。重新生成：`python tools/index_code.py`
-共 9 个文件、72 个函数/类/常量。
+共 10 个文件、81 个函数/类/常量。
 
 
 ## `menu.py`
@@ -34,8 +34,9 @@
 
 | 行 | 类型 | 名称 | 说明 |
 |---:|---|---|---|
-| 11 | 函数 | `build_plan` | 生成 [(原文件, 新文件名), ...]，不真正改名。 |
-| 25 | 函数 | `main` |  |
+| 17 | 函数 | `build_plan` | 生成 [(原文件, 新文件名), ...]，不真正改名。 |
+| 38 | 函数 | `rename_files` | 把 src_folder 里所有文件改名后**复制**到 out_folder，… |
+| 72 | 函数 | `main` |  |
 
 ## `tools/clean_excel.py`
 
@@ -84,12 +85,12 @@ PDF 合并 / 拆分 / 抽取页面。
 
 | 行 | 类型 | 名称 | 说明 |
 |---:|---|---|---|
-| 24 | 函数 | `natural_key` | 让 1.pdf、2.pdf、10.pdf 按人眼习惯排序。 |
-| 37 | 函数 | `collect_pdfs` | 收集文件夹里的 PDF，按文件名自然顺序排好。 |
-| 44 | 函数 | `parse_pages` | 把 '1-3,7' 解析成 0 基的页索引列表 [0,1,2,6]。 |
-| 77 | 函数 | `do_merge` |  |
-| 111 | 函数 | `do_split` |  |
-| 146 | 函数 | `main` |  |
+| 29 | 函数 | `collect_pdfs` | 收集文件夹里的 PDF，按文件名自然顺序排好。 |
+| 36 | 函数 | `parse_pages` | 把 '1-3,7' 解析成 0 基的页索引列表 [0,1,2,6]。 |
+| 69 | 函数 | `merge_pdfs` | 把一个文件夹里的 PDF 按文件名自然顺序合并，返回信息 dict。 |
+| 103 | 函数 | `do_merge` |  |
+| 137 | 函数 | `do_split` |  |
+| 172 | 函数 | `main` |  |
 
 ## `tools/reconcile.py`
 
@@ -102,6 +103,14 @@ PDF 合并 / 拆分 / 抽取页面。
 | 56 | 函数 | `reconcile_files` | 读两个 Excel 文件并对账，返回 (only_a, only_b, diff… |
 | 98 | 函数 | `main` |  |
 
+## `tools/textutil.py`
+
+工具之间共用的小函数。
+
+| 行 | 类型 | 名称 | 说明 |
+|---:|---|---|---|
+| 5 | 函数 | `natural_key` | 让 1.pdf、2.pdf、10.pdf 按人眼习惯排序。 |
+
 ## `tools/word_tool.py`
 
 Word 批量处理：批量替换文字、提取全部文字、汇总所有表格。
@@ -111,10 +120,11 @@ Word 批量处理：批量替换文字、提取全部文字、汇总所有表格
 | 20 | 函数 | `iter_docx` | 找出文件夹里所有 .docx（跳过 Word 打开时产生的 ~$ 临时文件）。 |
 | 27 | 函数 | `replace_in_paragraph` | 在一个段落里替换文字，返回替换了多少处。 |
 | 50 | 函数 | `replace_in_doc` | 替换正文、表格里的文字，返回 (替换处数, 段落数)。 |
-| 72 | 函数 | `do_replace` |  |
-| 110 | 函数 | `do_extract` |  |
-| 148 | 函数 | `do_tables` |  |
-| 193 | 函数 | `main` |  |
+| 72 | 函数 | `replace_in_folder` | 批量替换一个文件夹里的 Word，结果写到 out_dir。 |
+| 113 | 函数 | `do_replace` |  |
+| 151 | 函数 | `do_extract` |  |
+| 189 | 函数 | `do_tables` |  |
+| 234 | 函数 | `main` |  |
 
 ## `webapp/app.py`
 
@@ -123,18 +133,24 @@ Word 批量处理：批量替换文字、提取全部文字、汇总所有表格
 | 行 | 类型 | 名称 | 说明 |
 |---:|---|---|---|
 | 20 | 常量 | `BASE_DIR` |  |
-| 33 | 常量 | `TOOLS` |  |
-| 46 | 常量 | `_RESULTS` |  |
-| 47 | 常量 | `_RESULT_TTL` |  |
-| 50 | 函数 | `store_result` | 登记一个待下载的结果，返回下载用的 token。 |
-| 62 | 函数 | `friendly_error` | 把内部错误信息翻译成客户能看懂的话，顺便藏掉服务器路径。 |
-| 72 | 函数 | `save_upload` | 把上传的文件写到指定目录，返回落盘路径。 |
-| 82 | 函数 | `index` |  |
-| 87 | 函数 | `health` |  |
-| 92 | 函数 | `download` |  |
-| 106 | 函数 | `merge_page` |  |
-| 111 | 函数 | `merge_submit` |  |
-| 146 | 函数 | `clean_page` |  |
-| 151 | 函数 | `clean_submit` |  |
-| 194 | 函数 | `reconcile_page` |  |
-| 199 | 函数 | `reconcile_submit` |  |
+| 36 | 常量 | `TOOLS` |  |
+| 49 | 常量 | `_RESULTS` |  |
+| 50 | 常量 | `_RESULT_TTL` |  |
+| 53 | 函数 | `store_result` | 登记一个待下载的结果，返回下载用的 token。 |
+| 65 | 函数 | `friendly_error` | 把内部错误信息翻译成客户能看懂的话，顺便藏掉服务器路径。 |
+| 75 | 函数 | `save_upload` | 把上传的文件写到指定目录，返回落盘路径。 |
+| 85 | 函数 | `index` |  |
+| 90 | 函数 | `health` |  |
+| 95 | 函数 | `download` |  |
+| 109 | 函数 | `merge_page` |  |
+| 114 | 函数 | `merge_submit` |  |
+| 149 | 函数 | `clean_page` |  |
+| 154 | 函数 | `clean_submit` |  |
+| 197 | 函数 | `reconcile_page` |  |
+| 202 | 函数 | `reconcile_submit` |  |
+| 260 | 函数 | `pdf_page` |  |
+| 265 | 函数 | `pdf_submit` |  |
+| 314 | 函数 | `word_page` |  |
+| 319 | 函数 | `word_submit` |  |
+| 382 | 函数 | `rename_page` |  |
+| 387 | 函数 | `rename_submit` |  |

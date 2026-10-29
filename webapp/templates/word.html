@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Word 批量替换{% endblock %}
+
+{% block content %}
+<a class="back" href="/">← 返回</a>
+
+<header>
+  <h1>Word 批量替换</h1>
+  <p class="sub">几十份合同要改公司名？上传后一次改完，打包下载</p>
+</header>
+
+<div class="panel">
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form action="/word" method="post" enctype="multipart/form-data">
+    <label for="files">选择要处理的 Word 文件（可多选）</label>
+    <input id="files" type="file" name="files" multiple accept=".docx" required>
+
+    <label for="old" style="margin-top:18px;">要把哪段文字替换掉？</label>
+    <input id="old" type="text" name="old" placeholder="比如：甲公司" required>
+
+    <label for="new" style="margin-top:18px;">换成什么？</label>
+    <input id="new" type="text" name="new" placeholder="比如：乙公司（留空 = 删掉这段文字）">
+
+    <p class="hint">
+      · 正文和表格里的文字都会替换<br>
+      · 原文件不会改动，你下载到的是新文件（zip 包）<br>
+      · 没有任何匹配的文件不会出现在压缩包里
+    </p>
+
+    <button type="submit">开始替换</button>
+  </form>
+</div>
+{% endblock %}

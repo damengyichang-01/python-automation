@@ -34,7 +34,7 @@ build_exe.bat fast   # 文件夹版（启动快 10 倍，自己用）
 
 ## 网页版（本地）
 
-把工具做成网页：浏览器里上传文件、点一下、直接下载结果。目前已完成「合并多个 Excel」一个功能。
+把六个工具做成网页：浏览器里上传文件、点一下、下载结果。
 
 ```bash
 py -3.12 -m pip install -r requirements-web.txt
@@ -46,14 +46,30 @@ py -3.12 -m uvicorn webapp.app:app --port 8000
 | 路由 | 作用 |
 |---|---|
 | `GET /` | 首页，列出六个功能 |
-| `GET /merge` | 合并功能的表单页 |
-| `POST /merge` | 接收上传的文件，合并后直接返回 xlsx |
+| `GET/POST /merge` | 合并多个 Excel / CSV |
+| `GET/POST /clean` | 清洗 Excel（结果页显示清洗报告） |
+| `GET/POST /reconcile` | 两表对账（结果页显示差异预览） |
+| `GET/POST /pdf` | PDF 合并 |
+| `GET/POST /word` | Word 批量替换（输出 zip） |
+| `GET/POST /rename` | 批量重命名（输出 zip） |
+| `GET /download/{token}` | 一次性下载链接 |
 | `GET /health` | 健康检查 |
 
-**设计要点**：
-- 网页不碰 `sys.argv`，而是调用 `tools/merge_excel.py` 里的 `merge_folder()` —— 同一份逻辑，命令行和网页共用
-- 上传的文件写到系统临时目录，下载完成后由 `BackgroundTask` 自动删除
-- 错误统一转成客户能看懂的话，并且**不暴露服务器路径**
+**四个设计要点**：
+
+1. **网页不碰 `sys.argv`** —— 每个工具都抽出了一个纯函数（`merge_folder` / `clean_file` / `reconcile_files` / `merge_pdfs` / `replace_in_folder` / `rename_files`），命令行和网页共用同一份逻辑。
+2. **下载走 token，不暴露路径** —— 处理完把文件放临时目录，发一个 `/download/{token}` 给页面；点下载后才返回文件并删除目录。链接 10 分钟过期、只能用一次。
+3. **错误信息不暴露服务器路径** —— 统一转成"没有找到可处理的表格文件"这类客户能看懂的话。
+4. **多文件输出打包成 zip** —— Word 替换和重命名会产生多个文件，压缩后一次下载。
+
+**开发时的小坑**：工具模块既要能 `python tools/xxx.py` 直接运行，又要能被 `from tools.xxx import` 导入，所以跨模块引用要写成：
+
+```python
+try:
+    from tools.textutil import natural_key
+except ImportError:      # 直接运行脚本时，搜索路径里是 tools/ 目录本身
+    from textutil import natural_key
+```
 
 > 本地网页版只能在自己的电脑上访问。要让客户打开链接就能用，需要公网服务器 + 域名（国内还需备案），那是下一步。
 

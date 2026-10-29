@@ -69,6 +69,47 @@ def replace_in_doc(doc, old, new):
     return total, hit_paras
 
 
+def replace_in_folder(folder, old, new, out_dir):
+    """批量替换一个文件夹里的 Word，结果写到 out_dir。
+
+    供网页版调用：不打印、不退出，出错抛 ValueError。
+    返回 (输出目录, info dict)。
+    """
+    files = iter_docx(Path(folder))
+    if not files:
+        raise ValueError(f"在 {folder} 里没找到 .docx 文件")
+    if not old:
+        raise ValueError("要替换的文字不能为空")
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    detail = []
+    total_hits = 0
+    changed_files = 0
+    for f in files:
+        try:
+            doc = Document(str(f))
+        except Exception as e:
+            detail.append({"name": f.name, "paras": 0, "note": f"打不开：{e}"})
+            continue
+        hits, paras = replace_in_doc(doc, old, new)
+        if hits:
+            doc.save(str(out / f.name))
+            total_hits += hits
+            changed_files += 1
+            detail.append({"name": f.name, "paras": paras, "note": ""})
+        else:
+            detail.append({"name": f.name, "paras": 0, "note": "无匹配，未输出"})
+
+    return out, {
+        "files": detail,
+        "total_hits": total_hits,
+        "count": len(files),
+        "changed": changed_files,
+    }
+
+
 def do_replace(folder, old, new, out_dir, dry_run):
     files = iter_docx(folder)
     if not files:
