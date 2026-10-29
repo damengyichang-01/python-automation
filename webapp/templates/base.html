@@ -34,6 +34,25 @@
       display: block; width: 100%; padding: 12px; border: 1px dashed #cbd5e1;
       border-radius: 8px; background: #fafbfc; font-size: 14px;
     }
+    /* 拖拽上传区：file input 铺满整个区域但透明，点哪都能弹出选择框 */
+    .dropzone {
+      position: relative; border: 2px dashed #cbd5e1; border-radius: 10px;
+      background: #fafbfc; padding: 26px 18px; text-align: center;
+      transition: border-color .15s, background .15s;
+    }
+    .dropzone:hover { border-color: #2e75b6; background: #f6faff; }
+    .dropzone.over { border-color: #2e75b6; background: #eaf3fb; }
+    .dropzone.has-file { border-style: solid; border-color: #548235; background: #f7fbf5; }
+    .dropzone input[type=file] {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer; padding: 0; border: 0;
+    }
+    .dz-hint { font-size: 14px; color: #4b5563; font-weight: 500; }
+    .dz-sub { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+    .dz-list {
+      font-size: 12px; color: #2f6b2f; margin-top: 10px;
+      word-break: break-all; line-height: 1.7;
+    }
     button {
       margin-top: 18px; padding: 11px 22px; font-size: 15px; font-weight: 600;
       color: #fff; background: #2e75b6; border: 0; border-radius: 8px; cursor: pointer;
@@ -83,5 +102,72 @@
     {% block content %}{% endblock %}
     <footer>办公自动化工具包 · 本地网页版</footer>
   </div>
+
+  <script>
+  // 把每个 file input 变成可拖拽的上传区。
+  // 不想在 6 个模板里各写一遍，所以放在 base.html 里统一处理。
+  (function () {
+    document.querySelectorAll('input[type=file]').forEach(function (input) {
+      var zone = document.createElement('div');
+      zone.className = 'dropzone';
+      input.parentNode.insertBefore(zone, input);
+      zone.appendChild(input);
+
+      var hint = document.createElement('div');
+      hint.className = 'dz-hint';
+      hint.textContent = input.multiple ? '把文件拖到这里，或点击选择' : '把文件拖到这里，或点击选择';
+      zone.appendChild(hint);
+
+      var sub = document.createElement('div');
+      sub.className = 'dz-sub';
+      sub.textContent = input.multiple
+        ? '支持一次选多个文件（按住 Ctrl 点选，或直接拖一批进来）'
+        : '一次只能传一个文件';
+      zone.appendChild(sub);
+
+      var list = document.createElement('div');
+      list.className = 'dz-list';
+      zone.appendChild(list);
+
+      function render() {
+        var files = Array.prototype.slice.call(input.files || []);
+        if (!files.length) {
+          list.textContent = '';
+          zone.classList.remove('has-file');
+          return;
+        }
+        zone.classList.add('has-file');
+        var names = files.map(function (f) { return f.name; }).join('、');
+        list.textContent = '已选择 ' + files.length + ' 个文件：' + names;
+      }
+
+      ['dragenter', 'dragover'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) {
+          e.preventDefault();
+          zone.classList.add('over');
+        });
+      });
+      ['dragleave', 'dragend'].forEach(function (ev) {
+        zone.addEventListener(ev, function () { zone.classList.remove('over'); });
+      });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.classList.remove('over');
+        var dt = e.dataTransfer;
+        if (!dt || !dt.files || !dt.files.length) return;
+        var dt2 = new DataTransfer();
+        if (input.multiple) {
+          Array.prototype.forEach.call(dt.files, function (f) { dt2.items.add(f); });
+        } else {
+          dt2.items.add(dt.files[0]);
+        }
+        input.files = dt2.files;
+        render();
+      });
+      input.addEventListener('change', render);
+      render();
+    });
+  })();
+  </script>
 </body>
 </html>
