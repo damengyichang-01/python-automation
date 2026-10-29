@@ -91,7 +91,9 @@ def clean(df: pd.DataFrame, dedup_by=None, fill_cols=None, date_cols=None):
     for c in targets:
         n = int(df[c].isna().sum())
         if n:
-            df[c] = df[c].fillna("未填")
+            # 先转成 object 再填 —— 往 float64 列里填字符串在 pandas 4 会直接报错。
+            # 这里本来就要把空值变成"未填"这几个字，转 object 是正确的语义。
+            df[c] = df[c].astype(object).fillna("未填")
             filled += n
     report["补空"] = filled
 
