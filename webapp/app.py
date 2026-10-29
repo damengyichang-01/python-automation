@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -29,7 +30,39 @@ from tools.word_tool import replace_in_folder  # noqa: E402
 
 import pandas as pd  # noqa: E402
 
-app = FastAPI(title="办公自动化工具包")
+WORK_PREFIXES = ("offtools_",)
+
+
+def cleanup_stale_temp(max_age_seconds=600):
+    """清掉遗留的工作目录。
+
+    客户处理完但没点下载时，文件会一直留在临时目录里。
+    每次启动和每次处理时都扫一遍，超过 10 分钟的直接删。
+    """
+    root = Path(tempfile.gettempdir())
+    now = time.time()
+    removed = 0
+    for d in root.iterdir():
+        if not d.is_dir() or not d.name.startswith(WORK_PREFIXES):
+            continue
+        try:
+            if now - d.stat().st_mtime > max_age_seconds:
+                shutil.rmtree(d, ignore_errors=True)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    n = cleanup_stale_temp()
+    if n:
+        print(f"[启动清理] 删除了 {n} 个遗留的临时目录")
+    yield
+
+
+app = FastAPI(title="办公自动化工具包", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 # 首页上展示的工具清单。done=False 的先占位，避免点进去是空页面。
@@ -52,10 +85,11 @@ _RESULT_TTL = 600  # 10 分钟后过期
 
 def store_result(path: Path, filename: str) -> str:
     """登记一个待下载的结果，返回下载用的 token。"""
+    cleanup_stale_temp()  # 顺手清掉过期的，避免客户不下载就一直占磁盘
     now = time.time()
     for k, v in list(_RESULTS.items()):
         if now - v[2] > _RESULT_TTL:
-            Path(v[0]).parent.exists() and shutil.rmtree(Path(v[0]).parent, ignore_errors=True)
+            shutil.rmtree(Path(v[0]).parent, ignore_errors=True)
             _RESULTS.pop(k, None)
     token = uuid.uuid4().hex
     _RESULTS[token] = (str(path), filename, now)
@@ -117,7 +151,7 @@ async def merge_submit(request: Request, files: list[UploadFile] = File(...)):
             request, "merge.html", {"error": "没有收到文件，请重新选择"}, status_code=400
         )
 
-    work = Path(tempfile.mkdtemp(prefix="merge_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_merge_"))
     try:
         for f in files:
             await save_upload(f, work)
@@ -156,7 +190,7 @@ async def clean_submit(
     file: UploadFile = File(...),
     dedup_by: str = Form(""),
 ):
-    work = Path(tempfile.mkdtemp(prefix="clean_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_clean_"))
     try:
         src = await save_upload(file, work)
         dedup = [c.strip() for c in dedup_by.split(",") if c.strip()] or None
@@ -206,7 +240,7 @@ async def reconcile_submit(
     key: str = Form("订单号"),
     compare: str = Form("金额"),
 ):
-    work = Path(tempfile.mkdtemp(prefix="rec_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_rec_"))
     try:
         pa = await save_upload(file_a, work)
         pb = await save_upload(file_b, work)
@@ -268,7 +302,7 @@ async def pdf_submit(request: Request, files: list[UploadFile] = File(...)):
             request, "pdf.html", {"error": "没有收到文件，请重新选择"}, status_code=400
         )
 
-    work = Path(tempfile.mkdtemp(prefix="pdf_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_pdf_"))
     try:
         for f in files:
             await save_upload(f, work)
@@ -327,7 +361,7 @@ async def word_submit(
             request, "word.html", {"error": "没有收到文件，请重新选择"}, status_code=400
         )
 
-    work = Path(tempfile.mkdtemp(prefix="word_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_word_"))
     try:
         src = work / "in"
         src.mkdir()
@@ -396,7 +430,7 @@ async def rename_submit(
         )
 
     width = max(1, min(int(width or 3), 6))
-    work = Path(tempfile.mkdtemp(prefix="rename_"))
+    work = Path(tempfile.mkdtemp(prefix="offtools_rename_"))
     try:
         src = work / "in"
         src.mkdir()
