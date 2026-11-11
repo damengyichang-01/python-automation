@@ -22,3 +22,6 @@ demo_output/
 build/
 dist/
 *.spec
+
+# SQL 练习生成的数据库（运行 setup_db.py 重新生成）
+learn_sql/demo.db
