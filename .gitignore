@@ -25,3 +25,6 @@ dist/
 
 # SQL 练习生成的数据库（运行 setup_db.py 重新生成）
 learn_sql/demo.db
+
+# SQL 练习生成的报表
+learn_sql/*.xlsx
