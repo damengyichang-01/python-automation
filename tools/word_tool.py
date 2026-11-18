@@ -16,6 +16,11 @@ from pathlib import Path
 
 from docx import Document
 
+try:
+    from tools.textutil import unique_dir, unique_path
+except ImportError:  # 直接用 python tools/xxx.py 运行时，按同目录导入
+    from textutil import unique_dir, unique_path
+
 
 def iter_docx(folder):
     """找出文件夹里所有 .docx（跳过 Word 打开时产生的 ~$ 临时文件）。"""
@@ -122,6 +127,8 @@ def do_replace(folder, old, new, out_dir, dry_run):
     total_hits = 0
     out_path = Path(out_dir) if out_dir else None
     if out_path and not dry_run:
+        # 同名文件夹已存在就改名，不覆盖上一次的结果
+        out_path = unique_dir(out_path)
         out_path.mkdir(parents=True, exist_ok=True)
 
     for f in files:
@@ -182,6 +189,7 @@ def do_extract(folder, output, dry_run):
     out = Path(output or "全部文字.txt")
     if out.parent and not out.parent.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
+    out = unique_path(out)
     out.write_text(text, encoding="utf-8")
     print(f"\n已保存：{out.resolve()}（{len(text)} 个字）")
 
@@ -227,6 +235,7 @@ def do_tables(folder, output, dry_run):
     out = Path(output or "表格汇总.xlsx")
     if out.parent and not out.parent.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
+    out = unique_path(out)
     df.to_excel(out, index=False)
     print(f"\n已保存：{out.resolve()}")
 

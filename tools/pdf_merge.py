@@ -21,9 +21,9 @@ from pathlib import Path
 from pypdf import PdfReader, PdfWriter
 
 try:
-    from tools.textutil import natural_key
+    from tools.textutil import natural_key, unique_dir, unique_path
 except ImportError:  # 直接用 python tools/xxx.py 运行时，按同目录导入
-    from textutil import natural_key
+    from textutil import natural_key, unique_dir, unique_path
 
 
 def collect_pdfs(folder):
@@ -96,6 +96,7 @@ def merge_pdfs(folder, output):
     out = Path(output)
     if out.parent and not out.parent.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
+    out = unique_path(out)
     writer.write(str(out))
     return {"files": detail, "pages": total, "count": len(files)}
 
@@ -130,6 +131,7 @@ def do_merge(folder, output, dry_run):
     out = Path(output)
     if out.parent and not out.parent.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
+    out = unique_path(out)
     writer.write(str(out))
     print(f"已保存：{out.resolve()}")
 
@@ -152,6 +154,7 @@ def do_split(src, output, pages_spec, dry_run):
         out = Path(output)
         if out.parent and not out.parent.exists():
             out.parent.mkdir(parents=True, exist_ok=True)
+        out = unique_path(out)
         writer.write(str(out))
         print(f"已抽取 {len(idxs)} 页 -> {out.resolve()}")
         return
@@ -161,6 +164,7 @@ def do_split(src, output, pages_spec, dry_run):
     if dry_run:
         print(f"[预览模式] 将拆成 {total} 个单页文件，输出到：{out_dir.resolve()}")
         return
+    out_dir = unique_dir(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     for i in idxs:
         w = PdfWriter()

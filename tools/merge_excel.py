@@ -22,6 +22,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from tools.textutil import unique_path
+except ImportError:  # 直接用 python tools/xxx.py 运行时，按同目录导入
+    from textutil import unique_path
+
 EXCEL_SUFFIXES = {".xlsx", ".xlsm"}
 CSV_SUFFIXES = {".csv"}
 
@@ -184,6 +189,8 @@ def main():
     if out.parent and not out.parent.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
         print(f"已创建输出目录：{out.parent}")
+    # 同名文件已存在就自动改名，绝不覆盖客户已有的文件
+    out = unique_path(out)
     merged.to_excel(out, index=False)
     print(f"\n已保存：{out.resolve()}")
 

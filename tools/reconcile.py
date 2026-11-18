@@ -10,6 +10,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from tools.textutil import unique_path
+except ImportError:  # 直接用 python tools/xxx.py 运行时，按同目录导入
+    from textutil import unique_path
+
 
 def field_differs(sa, sb):
     """两列逐行比较，返回"这一行该字段是否不同"的布尔序列。
@@ -136,6 +141,10 @@ def main():
             print(f"  …… 还有 {len(diff) - 10} 条，见结果文件")
 
     out = Path(args.output)
+    if out.parent and not out.parent.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+    # 同名文件已存在就自动改名，绝不覆盖客户已有的文件
+    out = unique_path(out)
     with pd.ExcelWriter(out) as w:
         only_a.to_excel(w, sheet_name="只在A表", index=False)
         only_b.to_excel(w, sheet_name="只在B表", index=False)
