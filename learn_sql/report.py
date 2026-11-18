@@ -1,46 +1,81 @@
-"""月度对账报表生成器 —— SQL 查询 + Excel 输出。
+"""月度对账报表生成器 —— 支持 SQLite / MySQL / MariaDB / PostgreSQL。
 
 用法：
+    # 本地 SQLite 练习库
     py -3.12 learn_sql/report.py
-    py -3.12 learn_sql/report.py -o 我的对账报表.xlsx
 
-输出三个工作表：
-    月度汇总   每个月系统/手工的笔数、总额、差额
-    差异明细   三类差异（只在系统、只在手工、金额不符）合成一张表
-    漏记统计   按月份统计系统有、手工没有的订单数
+    # 连 MariaDB（本机，root 空密码）
+    py -3.12 learn_sql/report.py --dsn "mysql+pymysql://root:@127.0.0.1:3306/practice?charset=utf8mb4"
 
-这就是"客户给你两张表，你给他一份报表"的最小实现。
-把 SQL 换成客户真实的表名和列名，就能直接用。
+    # 指定输出文件名
+    py -3.12 learn_sql/report.py --dsn "..." -o 客户的报表.xlsx
+
+输出三个工作表：月度汇总、差异明细、漏记统计。
+
+两个跨数据库的关键写法：
+  1. 日期格式化每个库都不一样（strftime / DATE_FORMAT / to_char），
+     所以按当前连接的数据库类型自动挑函数。
+  2. MySQL/MariaDB 不支持 FULL OUTER JOIN，
+     所以统一用 LEFT JOIN + UNION + RIGHT JOIN 的写法，四个库都能跑。
 """
 import argparse
-import sqlite3
 import sys
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import create_engine, text
 
 HERE = Path(__file__).resolve().parent
-DB = HERE / "demo.db"
-OUT = HERE / "月度对账报表.xlsx"
+SQLITE_DSN = f"sqlite:///{HERE / 'demo.db'}"
+DEFAULT_OUT = HERE / "月度对账报表.xlsx"
 
-SQL_MONTHLY = """
-SELECT COALESCE(s.月份, m.月份) AS 月份,
-       COALESCE(s.笔数, 0) AS 系统笔数,
-       COALESCE(s.总额, 0) AS 系统总额,
-       COALESCE(m.笔数, 0) AS 手工笔数,
-       COALESCE(m.总额, 0) AS 手工总额,
-       COALESCE(m.总额, 0) - COALESCE(s.总额, 0) AS 差额
-FROM (SELECT strftime('%Y-%m', 日期) AS 月份, count(*) AS 笔数, sum(金额) AS 总额
-      FROM sys_orders GROUP BY 月份) s
-FULL OUTER JOIN
-     (SELECT strftime('%Y-%m', 日期) AS 月份, count(*) AS 笔数, sum(金额) AS 总额
-      FROM manual_orders GROUP BY 月份) m
-  ON s.月份 = m.月份
+# 把日期列变成"年-月"的写法，各库不同。
+# {col} 会被替换成 日期 或 表别名.日期 —— 避免多表连接时列名歧义。
+MONTH_EXPR = {
+    "sqlite": "strftime('%Y-%m', {col})",
+    "mysql": "DATE_FORMAT({col}, '%Y-%m')",
+    "mariadb": "DATE_FORMAT({col}, '%Y-%m')",
+    "postgresql": "to_char({col}, 'YYYY-MM')",
+    "mssql": "FORMAT(CAST({col} AS date), 'yyyy-MM')",
+}
+
+
+def month_expr(dialect, table_alias=""):
+    """生成日期格式化表达式。table_alias 用于多表连接时限定列归属。"""
+    tmpl = MONTH_EXPR.get(dialect)
+    if not tmpl:
+        raise SystemExit(
+            f"还不支持 {dialect} 这个数据库。已支持：{', '.join(MONTH_EXPR)}\n"
+            f"你需要在 MONTH_EXPR 里加一条它对应的日期格式化写法。"
+        )
+    col = f"{table_alias}.日期" if table_alias else "日期"
+    return tmpl.format(col=col)
+
+
+def build_monthly_sql(me):
+    """按月对账。用 LEFT UNION RIGHT 模拟 FULL OUTER JOIN，兼容 MySQL。"""
+    sys_agg = f"SELECT {me} AS 月份, count(*) AS 笔数, sum(金额) AS 总额 FROM sys_orders GROUP BY 月份"
+    man_agg = f"SELECT {me} AS 月份, count(*) AS 笔数, sum(金额) AS 总额 FROM manual_orders GROUP BY 月份"
+    cols = ("COALESCE(s.月份, m.月份) AS 月份, "
+            "COALESCE(s.笔数, 0) AS 系统笔数, COALESCE(s.总额, 0) AS 系统总额, "
+            "COALESCE(m.笔数, 0) AS 手工笔数, COALESCE(m.总额, 0) AS 手工总额, "
+            "COALESCE(m.总额, 0) - COALESCE(s.总额, 0) AS 差额")
+    return f"""
+SELECT {cols}
+FROM ({sys_agg}) s LEFT JOIN ({man_agg}) m ON s.月份 = m.月份
+UNION
+SELECT {cols}
+FROM ({sys_agg}) s RIGHT JOIN ({man_agg}) m ON s.月份 = m.月份
+WHERE s.月份 IS NULL
 ORDER BY 月份
 """
 
-SQL_DIFF = """
-SELECT '只在系统' AS 类型, s.订单号, s.日期, s.客户, s.金额 AS 系统金额, NULL AS 手工金额, NULL AS 差额
+
+def build_diff_sql():
+    """三类差异合成一张表。全都是通用写法，不需要按库分支。"""
+    return """
+SELECT '只在系统' AS 类型, s.订单号, s.日期, s.客户,
+       s.金额 AS 系统金额, NULL AS 手工金额, NULL AS 差额
 FROM sys_orders s
 LEFT JOIN manual_orders m ON s.订单号 = m.订单号
 WHERE m.订单号 IS NULL
@@ -60,8 +95,10 @@ JOIN manual_orders m ON s.订单号 = m.订单号
 WHERE s.金额 != m.金额
 """
 
-SQL_MISSING = """
-SELECT strftime('%Y-%m', s.日期) AS 月份, count(*) AS 漏记单数
+
+def build_missing_sql(me_aliased):
+    return f"""
+SELECT {me_aliased} AS 月份, count(*) AS 漏记单数
 FROM sys_orders s
 LEFT JOIN manual_orders m ON s.订单号 = m.订单号
 WHERE m.订单号 IS NULL
@@ -70,25 +107,46 @@ ORDER BY 月份
 """
 
 
-def run_query(con, sql):
-    return pd.read_sql_query(sql, con)
+def to_numeric_cols(df, cols):
+    """把金额列统一成 float —— 不同数据库 sum() 返回类型不一样（整数 / Decimal）。"""
+    for c in cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df
 
 
 def main():
-    p = argparse.ArgumentParser(description="生成月度对账报表")
-    p.add_argument("-o", "--output", default=str(OUT), help="输出文件名")
+    p = argparse.ArgumentParser(description="生成月度对账报表（支持多种数据库）")
+    p.add_argument("--dsn", default="",
+                   help="数据库连接串，不填就用本地 SQLite 练习库。"
+                        "例：mysql+pymysql://root:@127.0.0.1:3306/practice?charset=utf8mb4")
+    p.add_argument("-o", "--output", default=str(DEFAULT_OUT), help="输出文件名")
     args = p.parse_args()
 
-    if not DB.exists():
-        sys.exit(f"数据库不存在：{DB}\n请先运行：py -3.12 learn_sql/setup_db.py")
+    dsn = args.dsn or SQLITE_DSN
+    engine = create_engine(dsn, pool_pre_ping=True)
 
-    con = sqlite3.connect(DB)
     try:
-        monthly = run_query(con, SQL_MONTHLY)
-        diff = run_query(con, SQL_DIFF)
-        missing = run_query(con, SQL_MISSING)
+        with engine.connect():
+            pass
+    except Exception as e:
+        sys.exit(f"连不上数据库：{e}\n\n检查四项：主机、端口、用户名密码、库名。")
+
+    dialect = engine.dialect.name
+    me = month_expr(dialect)
+    me_s = month_expr(dialect, "s")   # 多表连接时用带别名的版本
+    print(f"已连接：{dialect}" + ("" if args.dsn else "（本地练习库）"))
+
+    try:
+        with engine.connect() as con:
+            monthly = pd.read_sql_query(text(build_monthly_sql(me)), con)
+            diff = pd.read_sql_query(text(build_diff_sql()), con)
+            missing = pd.read_sql_query(text(build_missing_sql(me_s)), con)
     finally:
-        con.close()
+        engine.dispose()
+
+    monthly = to_numeric_cols(monthly, ["系统总额", "手工总额", "差额"])
+    diff = to_numeric_cols(diff, ["系统金额", "手工金额", "差额"])
 
     out = Path(args.output)
     with pd.ExcelWriter(out) as w:
